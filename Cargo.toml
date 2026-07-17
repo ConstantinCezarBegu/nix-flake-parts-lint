@@ -1,0 +1,8 @@
+[workspace]
+resolver = "3"
+members = [
+    "src/nix-lint-core",
+    "src/nix-lint-macros",
+    "src/nix-lint-rules",
+    "src/nix-lint",
+]
