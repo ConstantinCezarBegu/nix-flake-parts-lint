@@ -182,6 +182,19 @@ struct FileEntry {
 }
 
 fn collect_nix_files(dir: &std::path::Path) -> Vec<FileEntry> {
+    if dir.is_file() {
+        if let Some(ext) = dir.extension() {
+            if ext == "nix" {
+                if let Ok(content) = fs::read_to_string(dir) {
+                    return vec![FileEntry {
+                        path: dir.to_path_buf(),
+                        content,
+                    }];
+                }
+            }
+        }
+        return Vec::new();
+    }
     let mut files = Vec::new();
     collect_nix_files_inner(dir, &mut files);
     files
