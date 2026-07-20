@@ -7,3 +7,4 @@ edition = "2024"
 nix-lint-core = { path = "../nix-lint-core" }
 nix-lint-rules = { path = "../nix-lint-rules" }
 clap = { version = "4.5", features = ["derive"] }
+rayon = "1.10"

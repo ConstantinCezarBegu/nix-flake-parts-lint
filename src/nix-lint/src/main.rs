@@ -10,9 +10,11 @@ use std::collections::HashSet;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::OnceLock;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use clap::{Parser, Subcommand};
 use nix_lint_core::LintRegistry;
+use rayon::prelude::*;
 
 /// nix-lint: static analysis for Nix flake-parts configurations
 #[derive(Parser, Debug)]
@@ -113,16 +115,9 @@ fn main() {
     }
 
     let registry = registry::build_registry();
-    let mut found_issues = false;
 
-    let mut nix_files: Vec<(PathBuf, String)> = Vec::new();
-    walk_nix_files(
-        &cli.path,
-        &registry,
-        &mut found_issues,
-        &mut nix_files,
-        config,
-    );
+    let nix_files = collect_nix_files(&cli.path);
+    let found_issues = lint_files_parallel(&nix_files, &registry, config);
 
     if found_issues {
         std::process::exit(1);
@@ -180,13 +175,19 @@ fn explain_lint(name: &str) {
     std::process::exit(1);
 }
 
-fn walk_nix_files(
-    dir: &std::path::Path,
-    registry: &LintRegistry,
-    found_issues: &mut bool,
-    nix_files: &mut Vec<(PathBuf, String)>,
-    config: &ConfigFile,
-) {
+#[derive(Clone)]
+struct FileEntry {
+    path: PathBuf,
+    content: String,
+}
+
+fn collect_nix_files(dir: &std::path::Path) -> Vec<FileEntry> {
+    let mut files = Vec::new();
+    collect_nix_files_inner(dir, &mut files);
+    files
+}
+
+fn collect_nix_files_inner(dir: &std::path::Path, files: &mut Vec<FileEntry>) {
     if !dir.is_dir() {
         return;
     }
@@ -215,28 +216,46 @@ fn walk_nix_files(
             {
                 continue;
             }
-            walk_nix_files(&path, registry, found_issues, nix_files, config);
+            collect_nix_files_inner(&path, files);
         } else if path.extension().is_some_and(|ext| ext == "nix") {
-            lint_file(&path, registry, found_issues, nix_files, config);
+            if let Ok(content) = fs::read_to_string(&path) {
+                files.push(FileEntry { path, content });
+            }
         }
     }
 }
 
-fn lint_file(
+fn lint_files_parallel(files: &[FileEntry], registry: &LintRegistry, config: &ConfigFile) -> bool {
+    let found_issues = AtomicBool::new(false);
+
+    let results: Vec<(Vec<String>, bool)> = files
+        .par_iter()
+        .map(|file| lint_file_messages(&file.path, &file.content, registry, config))
+        .collect();
+
+    for (messages, has_issues) in results {
+        if has_issues {
+            found_issues.store(true, Ordering::Relaxed);
+        }
+        for msg in messages {
+            eprintln!("{}", msg);
+        }
+    }
+
+    found_issues.load(Ordering::Relaxed)
+}
+
+#[must_use]
+fn lint_file_messages(
     path: &std::path::Path,
+    src: &str,
     registry: &LintRegistry,
-    found_issues: &mut bool,
-    nix_files: &mut Vec<(PathBuf, String)>,
     config: &ConfigFile,
-) {
-    let src = match fs::read_to_string(path) {
-        Ok(s) => s,
-        Err(_) => return,
-    };
+) -> (Vec<String>, bool) {
+    let mut messages = Vec::new();
+    let mut has_issues = false;
 
-    nix_files.push((path.to_path_buf(), src.clone()));
-
-    match nix_lint_core::lint_file(registry, &src) {
+    match nix_lint_core::lint_file(registry, src) {
         Ok(reports) => {
             for report in &reports {
                 if config.disabled.contains(&report.code.to_string()) {
@@ -247,20 +266,50 @@ fn lint_file(
                     nix_lint_core::Severity::Error => "ERROR",
                     nix_lint_core::Severity::Hint => "HINT",
                 };
-                print_reports(path, &src, report, severity);
-            }
-            if !reports.is_empty() {
-                *found_issues = true;
+                let mut has_report_issues = false;
+                for diag in &report.diagnostics {
+                    has_issues = true;
+                    has_report_issues = true;
+                    let start = usize::from(diag.at.start());
+                    let line = src[..start].lines().count() + 1;
+                    let col = match src[..start].lines().last() {
+                        Some(l) => l.chars().count(),
+                        None => 0,
+                    };
+                    messages.push(format!(
+                        "{}:{}:{} [{}] {} (note: {})",
+                        path.display(),
+                        line,
+                        col + 1,
+                        severity,
+                        diag.message,
+                        report.note
+                    ));
+                }
+                if has_report_issues {
+                    messages.push(String::new());
+                }
             }
         }
         Err(err) => {
+            has_issues = true;
             let report = nix_lint_core::Report::from_parse_err(&err);
-            print_parse_error(path, &src, &report);
-            *found_issues = true;
+            if let Some(range) = report.total_range() {
+                let start = usize::from(range.start());
+                let line = src[..start].lines().count() + 1;
+                messages.push(format!(
+                    "{}:{}: ERROR: {} (syntax error)",
+                    path.display(),
+                    line,
+                    report.note
+                ));
+            } else {
+                messages.push(format!("{}: ERROR: {}", path.display(), report.note));
+            }
         }
     }
 
-    let file_reports = registry.validate_file(path, &src);
+    let file_reports = registry.validate_file(path, src);
     for report in &file_reports {
         if config.disabled.contains(&report.code.to_string()) {
             continue;
@@ -270,55 +319,11 @@ fn lint_file(
             nix_lint_core::Severity::Error => "ERROR",
             nix_lint_core::Severity::Hint => "HINT",
         };
-        eprintln!(
+        messages.push(format!(
             "{} [{}] {} (note: {})",
             report.file, severity, report.message, report.note
-        );
-        *found_issues = true;
-    }
-}
-
-fn print_reports(
-    path: &std::path::Path,
-    src: &str,
-    report: &nix_lint_core::Report,
-    severity: &str,
-) {
-    if report.diagnostics.is_empty() {
-        return;
+        ));
     }
 
-    for diag in &report.diagnostics {
-        let start = usize::from(diag.at.start());
-        let line = src[..start].lines().count() + 1;
-        let col = match src[..start].lines().last() {
-            Some(l) => l.chars().count(),
-            None => 0,
-        };
-
-        eprintln!(
-            "{}:{}:{} [{}] {} (note: {})",
-            path.display(),
-            line,
-            col + 1,
-            severity,
-            diag.message,
-            report.note
-        );
-    }
-}
-
-fn print_parse_error(path: &std::path::Path, src: &str, report: &nix_lint_core::Report) {
-    if let Some(range) = report.total_range() {
-        let start = usize::from(range.start());
-        let line = src[..start].lines().count() + 1;
-        eprintln!(
-            "{}:{}: ERROR: {} (syntax error)",
-            path.display(),
-            line,
-            report.note
-        );
-    } else {
-        eprintln!("{}: ERROR: {}", path.display(), report.note);
-    }
+    (messages, has_issues)
 }
