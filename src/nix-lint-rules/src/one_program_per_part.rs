@@ -1,40 +1,66 @@
 use std::path::Path;
 
-use nix_lint_core::{FileLevelRule, FileLevelReport, Severity};
+use nix_lint_core::{FileLevelReport, FileLevelRule, Severity};
 use regex::Regex;
 
 pub struct OneProgramPerPart;
 
 impl OneProgramPerPart {
-    pub fn new() -> Self { Self }
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl Default for OneProgramPerPart {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl FileLevelRule for OneProgramPerPart {
-    fn code(&self) -> u32 { 114 }
-    fn name(&self) -> &'static str { "one-program-per-part" }
-    fn severity(&self) -> Severity { Severity::Error }
-    fn note(&self) -> &'static str { "Multiple flake modules in one file." }
+    fn code(&self) -> u32 {
+        114
+    }
+    fn name(&self) -> &'static str {
+        "one-program-per-part"
+    }
+    fn severity(&self) -> Severity {
+        Severity::Error
+    }
+    fn note(&self) -> &'static str {
+        "Multiple flake modules in one file."
+    }
 
     fn validate_file(&self, path: &Path, content: &str) -> Option<FileLevelReport> {
         let re = Regex::new(r"flake\.modules\.(\w+)\.(\S+)").unwrap();
-        let names: Vec<&str> = re.captures_iter(content)
+        let names: Vec<&str> = re
+            .captures_iter(content)
             .filter_map(|c| c.get(2))
             .map(|m| m.as_str())
             .collect();
-        if names.len() <= 1 { return None; }
+        if names.len() <= 1 {
+            return None;
+        }
         let unique: std::collections::HashSet<&str> = names.iter().copied().collect();
         if unique.len() > 1 {
-            let cleaned: Vec<_> = unique.iter().map(|s| {
-                s.trim_start_matches(|c: char| c == '.' || c == '(' || c == '|')
-            }).collect();
+            let cleaned: Vec<_> = unique
+                .iter()
+                .map(|s| s.trim_start_matches(['.', '(', '|']))
+                .collect();
             Some(FileLevelReport {
                 file: path.to_string_lossy().into_owned(),
-                message: format!("Found {} different flake modules in one file: {}. Each file should define exactly one program/module.", unique.len(), cleaned.join(", ")),
+                message: format!(
+                    "Found {} different flake modules in one file: {}. Each file should define exactly one program/module.",
+                    unique.len(),
+                    cleaned.join(", ")
+                ),
                 note: self.note(),
                 code: self.code(),
                 severity: self.severity(),
             })
-        } else { None }
+        } else {
+            None
+        }
     }
 
     fn validate_project(&self, _files: &[(String, String)]) -> Vec<FileLevelReport> {
@@ -44,6 +70,7 @@ impl FileLevelRule for OneProgramPerPart {
 
 #[cfg(test)]
 mod tests {
+    #![allow(dead_code)]
     use super::*;
     use std::path::PathBuf;
 

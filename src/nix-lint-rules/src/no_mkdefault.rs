@@ -1,6 +1,6 @@
+use crate::rnix::{SyntaxElement, ast::Ident};
+use crate::rowan::ast::AstNode;
 use nix_lint_core::{Metadata, Report};
-use rowan::ast::AstNode;
-use rnix::{SyntaxElement, ast::Ident};
 
 #[nix_lint_macros::lint(
     name = "no-mkdefault",
@@ -15,12 +15,21 @@ use rnix::{SyntaxElement, ast::Ident};
 /// `mkDefault` makes it unclear where default values come from.
 pub struct NoMkDefault;
 
+impl Default for NoMkDefault {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl NoMkDefault {
     fn check(&self, node: &SyntaxElement) -> Option<Report> {
         if let SyntaxElement::Node(node) = node {
             if let Some(ident) = Ident::cast(node.clone()) {
                 if ident.to_string() == "mkDefault" {
-                    return Some(self.report().diagnostic(node.text_range(), "mkDefault found. Set values explicitly in host config."));
+                    return Some(self.report().diagnostic(
+                        node.text_range(),
+                        "mkDefault found. Set values explicitly in host config.",
+                    ));
                 }
             }
         }
@@ -30,6 +39,7 @@ impl NoMkDefault {
 
 #[cfg(test)]
 mod tests {
+    #![allow(dead_code)]
     use super::*;
     use nix_lint_core::LintRegistry;
 

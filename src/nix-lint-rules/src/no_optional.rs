@@ -1,6 +1,6 @@
+use crate::rnix::{SyntaxElement, ast::Ident};
+use crate::rowan::ast::AstNode;
 use nix_lint_core::{Metadata, Report};
-use rowan::ast::AstNode;
-use rnix::{SyntaxElement, ast::Ident};
 
 #[nix_lint_macros::lint(
     name = "no-optional",
@@ -15,6 +15,12 @@ use rnix::{SyntaxElement, ast::Ident};
 /// These functions hide conditional logic. `lib.optionalAttrs` is excluded as it is idiomatic in NixOS modules.
 pub struct NoOptional;
 
+impl Default for NoOptional {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl NoOptional {
     fn check(&self, node: &SyntaxElement) -> Option<Report> {
         if let SyntaxElement::Node(node) = node {
@@ -23,13 +29,17 @@ impl NoOptional {
                 if name == "optional" || name == "optionally" || name == "optionalString" {
                     if let Some(parent) = node.parent() {
                         if let Some(grandparent) = parent.parent() {
-                            if let Some(select) = rnix::ast::Select::cast(grandparent.clone()) {
+                            if let Some(select) =
+                                crate::rnix::ast::Select::cast(grandparent.clone())
+                            {
                                 if let Some(expr) = select.expr() {
                                     let expr_text = expr.syntax().to_string();
                                     if expr_text == "lib" || expr_text == "lib.types" {
                                         return Some(self.report().diagnostic(
                                             node.text_range(),
-                                            format!("lib.{name} found. Use if/then or mkIf instead."),
+                                            format!(
+                                                "lib.{name} found. Use if/then or mkIf instead."
+                                            ),
                                         ));
                                     }
                                 }
@@ -45,6 +55,7 @@ impl NoOptional {
 
 #[cfg(test)]
 mod tests {
+    #![allow(dead_code)]
     use super::*;
     use nix_lint_core::LintRegistry;
 

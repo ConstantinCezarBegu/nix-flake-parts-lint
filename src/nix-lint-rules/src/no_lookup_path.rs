@@ -1,5 +1,5 @@
+use crate::rnix::SyntaxElement;
 use nix_lint_core::{Metadata, Report};
-use rnix::SyntaxElement;
 
 #[nix_lint_macros::lint(
     name = "no-lookup-path",
@@ -13,6 +13,12 @@ use rnix::SyntaxElement;
 /// ## Why is this bad?
 /// Lookup paths use the Nix search path, which is non-reproducible.
 pub struct NoLookupPath;
+
+impl Default for NoLookupPath {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl NoLookupPath {
     fn check(&self, node: &SyntaxElement) -> Option<Report> {
@@ -43,6 +49,7 @@ impl NoLookupPath {
 
 #[cfg(test)]
 mod tests {
+    #![allow(dead_code)]
     use super::*;
     use nix_lint_core::LintRegistry;
 

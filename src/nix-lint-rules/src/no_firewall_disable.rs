@@ -1,6 +1,6 @@
+use crate::rnix::{SyntaxElement, ast::Attrpath};
+use crate::rowan::ast::AstNode;
 use nix_lint_core::{Metadata, Report};
-use rowan::ast::AstNode;
-use rnix::{SyntaxElement, ast::Attrpath};
 
 #[nix_lint_macros::lint(
     name = "no-firewall-disable",
@@ -15,6 +15,12 @@ use rnix::{SyntaxElement, ast::Attrpath};
 /// Disabling the firewall is a security risk.
 pub struct NoFirewallDisable;
 
+impl Default for NoFirewallDisable {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl NoFirewallDisable {
     fn check(&self, node: &SyntaxElement) -> Option<Report> {
         if let SyntaxElement::Node(node) = node {
@@ -25,39 +31,45 @@ impl NoFirewallDisable {
                     if let Some(parent) = node.parent() {
                         let parent_text = parent.to_string();
                         if parent_text.contains("false") {
-                            return Some(self.report().diagnostic(node.text_range(), "firewall.enable = false found. This is a security risk."));
-}
+                            return Some(self.report().diagnostic(
+                                node.text_range(),
+                                "firewall.enable = false found. This is a security risk.",
+                            ));
+                        }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use nix_lint_core::LintRegistry;
+                        #[cfg(test)]
+                        mod tests {
+                            #![allow(dead_code)]
+                            use super::*;
+                            use nix_lint_core::LintRegistry;
 
-    fn make_registry() -> LintRegistry {
-        let mut registry = LintRegistry::new();
-        registry.register(Box::new(NoFirewallDisable::new()));
-        registry
-    }
+                            fn make_registry() -> LintRegistry {
+                                let mut registry = LintRegistry::new();
+                                registry.register(Box::new(NoFirewallDisable::new()));
+                                registry
+                            }
 
-    #[test]
-    fn test_firewall_enable_false_triggers() {
-        let src = r#"{
+                            #[test]
+                            fn test_firewall_enable_false_triggers() {
+                                let src = r#"{
           networking.firewall.enable = false;
         }"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), src).unwrap();
-        assert!(!reports.is_empty());
-        assert_eq!(reports[0].code, 109);
-    }
+                                let reports =
+                                    nix_lint_core::lint_file(&make_registry(), src).unwrap();
+                                assert!(!reports.is_empty());
+                                assert_eq!(reports[0].code, 109);
+                            }
 
-    #[test]
-    fn test_firewall_enable_true_no_trigger() {
-        let src = r#"{
+                            #[test]
+                            fn test_firewall_enable_true_no_trigger() {
+                                let src = r#"{
           networking.firewall.enable = true;
         }"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), src).unwrap();
-        assert!(reports.is_empty());
-    }
-}
+                                let reports =
+                                    nix_lint_core::lint_file(&make_registry(), src).unwrap();
+                                assert!(reports.is_empty());
+                            }
+                        }
                     }
                 }
             }

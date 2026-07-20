@@ -1,6 +1,6 @@
+use crate::rnix::{SyntaxElement, ast::Str};
+use crate::rowan::ast::AstNode;
 use nix_lint_core::{Metadata, Report};
-use rowan::ast::AstNode;
-use rnix::{SyntaxElement, ast::Str};
 
 #[nix_lint_macros::lint(
     name = "no-nix-env",
@@ -15,13 +15,28 @@ use rnix::{SyntaxElement, ast::Str};
 /// `nix-env` is imperative and not reproducible.
 pub struct NoNixEnv;
 
+impl Default for NoNixEnv {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl NoNixEnv {
     fn check(&self, node: &SyntaxElement) -> Option<Report> {
         if let SyntaxElement::Node(node) = node {
             if let Some(_s) = Str::cast(node.clone()) {
                 let text = node.to_string();
                 if text.contains("nix-env ") || text.contains("nix-env\t") {
-                    for flag in &["nix-env -i", "nix-env -e", "nix-env -l", "nix-env -p", "nix-env -r", "nix-env -U", "nix-env -q", "nix-env -I"] {
+                    for flag in &[
+                        "nix-env -i",
+                        "nix-env -e",
+                        "nix-env -l",
+                        "nix-env -p",
+                        "nix-env -r",
+                        "nix-env -U",
+                        "nix-env -q",
+                        "nix-env -I",
+                    ] {
                         if text.contains(flag) {
                             return Some(self.report().diagnostic(node.text_range(), "Imperative nix-env usage found. Use declarative package management."));
                         }
@@ -35,6 +50,7 @@ impl NoNixEnv {
 
 #[cfg(test)]
 mod tests {
+    #![allow(dead_code)]
     use super::*;
     use nix_lint_core::LintRegistry;
 

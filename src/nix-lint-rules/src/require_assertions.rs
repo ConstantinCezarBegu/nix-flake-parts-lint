@@ -1,23 +1,41 @@
 use std::path::Path;
 
-use nix_lint_core::{FileLevelRule, FileLevelReport, Severity};
+use nix_lint_core::{FileLevelReport, FileLevelRule, Severity};
 use regex::Regex;
 
 pub struct RequireAssertions;
 
 impl RequireAssertions {
-    pub fn new() -> Self { Self }
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl Default for RequireAssertions {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl FileLevelRule for RequireAssertions {
-    fn code(&self) -> u32 { 116 }
-    fn name(&self) -> &'static str { "require-assertions" }
-    fn severity(&self) -> Severity { Severity::Warn }
-    fn note(&self) -> &'static str { "Module defines options but has no assertions." }
+    fn code(&self) -> u32 {
+        116
+    }
+    fn name(&self) -> &'static str {
+        "require-assertions"
+    }
+    fn severity(&self) -> Severity {
+        Severity::Warn
+    }
+    fn note(&self) -> &'static str {
+        "Module defines options but has no assertions."
+    }
 
     fn validate_file(&self, path: &Path, content: &str) -> Option<FileLevelReport> {
         let options_re = Regex::new(r"options\.\w+\.\w+").unwrap();
-        if !options_re.is_match(content) { return None; }
+        if !options_re.is_match(content) {
+            return None;
+        }
 
         let has_assertions = Regex::new(r"assertions\s*=").unwrap();
         let has_assert_stmt = Regex::new(r"\bassert\s+").unwrap();
@@ -42,6 +60,7 @@ impl FileLevelRule for RequireAssertions {
 
 #[cfg(test)]
 mod tests {
+    #![allow(dead_code)]
     use super::*;
     use std::path::PathBuf;
 

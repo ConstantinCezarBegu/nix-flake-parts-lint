@@ -1,6 +1,9 @@
+use crate::rnix::{
+    SyntaxElement,
+    ast::{AttrSet, HasEntry},
+};
+use crate::rowan::ast::AstNode;
 use nix_lint_core::{Metadata, Report};
-use rowan::ast::AstNode;
-use rnix::{SyntaxElement, ast::{AttrSet, HasEntry}};
 
 #[nix_lint_macros::lint(
     name = "no-defaults",
@@ -15,6 +18,12 @@ use rnix::{SyntaxElement, ast::{AttrSet, HasEntry}};
 /// All custom options should be set explicitly per host, not have defaults.
 pub struct NoDefaults;
 
+impl Default for NoDefaults {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl NoDefaults {
     fn check(&self, node: &SyntaxElement) -> Option<Report> {
         if let SyntaxElement::Node(node) = node {
@@ -27,7 +36,9 @@ impl NoDefaults {
                     if let Some(attrpath) = entry.attrpath() {
                         let mut attrs: Vec<_> = attrpath.attrs().collect();
                         if attrs.len() == 1 {
-                            if let Some(ident) = rnix::ast::Ident::cast(attrs.pop().unwrap().syntax().clone()) {
+                            if let Some(ident) =
+                                crate::rnix::ast::Ident::cast(attrs.pop().unwrap().syntax().clone())
+                            {
                                 if ident.to_string() == "default" {
                                     return Some(self.report().diagnostic(node.text_range(), "mkOption with default found. All custom options must be set explicitly per host."));
                                 }
@@ -43,6 +54,7 @@ impl NoDefaults {
 
 #[cfg(test)]
 mod tests {
+    #![allow(dead_code)]
     use super::*;
     use nix_lint_core::LintRegistry;
 

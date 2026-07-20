@@ -1,7 +1,10 @@
+use crate::rnix::{
+    NixLanguage, SyntaxElement,
+    ast::{AttrpathValue, Str},
+};
+use crate::rowan::ast::AstNode;
 use nix_lint_core::{Metadata, Report};
-use rowan::ast::AstNode;
 use regex::Regex;
-use rnix::{NixLanguage, SyntaxElement, ast::{AttrpathValue, Str}};
 
 #[nix_lint_macros::lint(
     name = "no-secrets",
@@ -16,46 +19,58 @@ use rnix::{NixLanguage, SyntaxElement, ast::{AttrpathValue, Str}};
 /// Secrets should be encrypted using agenix or sops-nix.
 pub struct NoSecrets;
 
+impl Default for NoSecrets {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl NoSecrets {
     fn check(&self, node: &SyntaxElement) -> Option<Report> {
         if let SyntaxElement::Node(node) = node {
             if let Some(_str) = Str::cast(node.clone()) {
                 let text = node.to_string();
-                
+
                 // Check for private key content
                 if text.contains("BEGIN") && text.contains("PRIVATE KEY") {
-                    return Some(self.report().diagnostic(node.text_range(), "Potential secrets in source found. Use agenix or sops-nix."));
+                    return Some(self.report().diagnostic(
+                        node.text_range(),
+                        "Potential secrets in source found. Use agenix or sops-nix.",
+                    ));
                 }
-                
+
                 // Check if string is a value of an attribute with a secret-like key name
                 if self.is_secret_value(node) {
-                    return Some(self.report().diagnostic(node.text_range(), "Potential secrets in source found. Use agenix or sops-nix."));
+                    return Some(self.report().diagnostic(
+                        node.text_range(),
+                        "Potential secrets in source found. Use agenix or sops-nix.",
+                    ));
                 }
             }
         }
         None
     }
-    
-    fn is_secret_value(&self, str_node: &rowan::SyntaxNode<NixLanguage>) -> bool {
+
+    fn is_secret_value(&self, str_node: &crate::rowan::SyntaxNode<NixLanguage>) -> bool {
         let text = str_node.to_string();
-        
+
         // Skip empty strings and very short strings
         if text.len() <= 2 {
             return false;
         }
-        
-               // Skip placeholder patterns like @SEARX_SECRET_KEY@ (with or without quotes)
+
+        // Skip placeholder patterns like @SEARX_SECRET_KEY@ (with or without quotes)
         let inner = text.trim_matches('"');
         if inner.starts_with('@') && inner.ends_with('@') {
             return false;
         }
-        
+
         // Check if this string is a value in an AttrpathValue with a secret-like key
         if let Some(parent) = str_node.parent() {
             if let Some(attrpath_value) = AttrpathValue::cast(parent.clone()) {
                 if let Some(attrpath) = attrpath_value.attrpath() {
                     for attr in attrpath.attrs() {
-                        if let Some(ident) = rnix::ast::Ident::cast(attr.syntax().clone()) {
+                        if let Some(ident) = crate::rnix::ast::Ident::cast(attr.syntax().clone()) {
                             let key_text = ident.to_string().to_lowercase();
                             if self.matches_secret_keyword(&key_text) && !self.is_prose(&text) {
                                 return true;
@@ -67,7 +82,7 @@ impl NoSecrets {
         }
         false
     }
-    
+
     fn matches_secret_keyword(&self, key: &str) -> bool {
         let patterns = [
             r"^api[_\-]?key$",
@@ -85,7 +100,7 @@ impl NoSecrets {
         }
         false
     }
-    
+
     fn is_prose(&self, text: &str) -> bool {
         let words: Vec<_> = text.split_whitespace().collect();
         words.len() >= 3
@@ -94,6 +109,7 @@ impl NoSecrets {
 
 #[cfg(test)]
 mod tests {
+    #![allow(dead_code)]
     use super::*;
     use nix_lint_core::LintRegistry;
 

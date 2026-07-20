@@ -19,7 +19,7 @@ use metadata::RawLintMeta;
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
-use syn::{parse_macro_input, ItemStruct};
+use syn::{ItemStruct, parse_macro_input};
 
 /// Generate the explanation from doc comments.
 fn generate_explain_impl(struct_item: &ItemStruct) -> TokenStream2 {
@@ -27,14 +27,12 @@ fn generate_explain_impl(struct_item: &ItemStruct) -> TokenStream2 {
         .attrs
         .iter()
         .filter_map(|attr| {
-            if attr.path().is_ident("doc") {
-                if let syn::Meta::NameValue(meta) = &attr.meta {
-                    if let syn::Expr::Lit(expr_lit) = &meta.value {
-                        if let syn::Lit::Str(lit_str) = &expr_lit.lit {
-                            return Some(lit_str.value());
-                        }
-                    }
-                }
+            if attr.path().is_ident("doc")
+                && let syn::Meta::NameValue(meta) = &attr.meta
+                && let syn::Expr::Lit(expr_lit) = &meta.value
+                && let syn::Lit::Str(lit_str) = &expr_lit.lit
+            {
+                return Some(lit_str.value());
             }
             None
         })
@@ -77,7 +75,7 @@ pub fn lint(attr: TokenStream, item: TokenStream) -> TokenStream {
     let meta_impl = generate_meta_impl(struct_name, &meta);
     let explain_impl = generate_explain_impl(&struct_item);
 
-   let output = quote! {
+    let output = quote! {
         #[derive(Clone, Copy)]
         #struct_item
 
@@ -94,7 +92,7 @@ pub fn lint(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
 
         impl ::nix_lint_core::Rule for #struct_name {
-            fn validate(&self, node: &::rnix::SyntaxElement) -> Option<::nix_lint_core::Report> {
+            fn validate(&self, node: &crate::rnix::SyntaxElement) -> Option<::nix_lint_core::Report> {
                 self.check(node)
             }
         }

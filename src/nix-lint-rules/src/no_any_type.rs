@@ -1,6 +1,9 @@
+use crate::rnix::{
+    SyntaxElement,
+    ast::{Attrpath, Ident, Select},
+};
+use crate::rowan::ast::AstNode;
 use nix_lint_core::{Metadata, Report};
-use rowan::ast::AstNode;
-use rnix::{SyntaxElement, ast::{Attrpath, Ident, Select}};
 
 #[nix_lint_macros::lint(
     name = "no-any-type",
@@ -15,6 +18,12 @@ use rnix::{SyntaxElement, ast::{Attrpath, Ident, Select}};
 /// `lib.types.anything` provides no type safety.
 pub struct NoAnyType;
 
+impl Default for NoAnyType {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl NoAnyType {
     fn check(&self, node: &SyntaxElement) -> Option<Report> {
         if let SyntaxElement::Node(node) = node {
@@ -22,7 +31,7 @@ impl NoAnyType {
                 if ident.to_string() == "anything" {
                     if let Some(parent) = node.parent() {
                         if let Some(attrpath) = Attrpath::cast(parent.clone()) {
-                            let attrs: Vec<_> = attrpath.attrs().into_iter().collect();
+                            let attrs: Vec<_> = attrpath.attrs().collect();
                             if let Some(last) = attrs.last() {
                                 if last.to_string() == "anything" {
                                     if let Some(grandparent) = parent.parent() {
@@ -52,6 +61,7 @@ impl NoAnyType {
 
 #[cfg(test)]
 mod tests {
+    #![allow(dead_code)]
     use super::*;
     use nix_lint_core::LintRegistry;
 

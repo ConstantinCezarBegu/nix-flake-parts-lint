@@ -1,6 +1,6 @@
+use crate::rnix::{SyntaxElement, ast::Apply};
+use crate::rowan::ast::AstNode;
 use nix_lint_core::{Metadata, Report};
-use rowan::ast::AstNode;
-use rnix::{SyntaxElement, ast::Apply};
 
 #[nix_lint_macros::lint(
     name = "no-mkif-true",
@@ -15,6 +15,12 @@ use rnix::{SyntaxElement, ast::Apply};
 /// `mkIf condition true` is equivalent to just `condition`.
 pub struct NoMkIfTrue;
 
+impl Default for NoMkIfTrue {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl NoMkIfTrue {
     fn is_mkif_lambda(&self, lambda_text: &str) -> bool {
         lambda_text == "lib.mkIf" || lambda_text == "mkIf"
@@ -22,7 +28,7 @@ impl NoMkIfTrue {
 
     fn check(&self, node: &SyntaxElement) -> Option<Report> {
         if let SyntaxElement::Node(node) = node {
-            if let Some(ident) = rnix::ast::Ident::cast(node.clone()) {
+            if let Some(ident) = crate::rnix::ast::Ident::cast(node.clone()) {
                 if ident.to_string() != "true" {
                     return None;
                 }
@@ -60,6 +66,7 @@ impl NoMkIfTrue {
 
 #[cfg(test)]
 mod tests {
+    #![allow(dead_code)]
     use super::*;
     use nix_lint_core::LintRegistry;
 

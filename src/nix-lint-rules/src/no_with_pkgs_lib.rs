@@ -1,6 +1,6 @@
+use crate::rnix::{SyntaxElement, ast::With};
+use crate::rowan::ast::AstNode;
 use nix_lint_core::{Metadata, Report};
-use rowan::ast::AstNode;
-use rnix::{SyntaxElement, ast::With};
 
 #[nix_lint_macros::lint(
     name = "no-with-pkgs-lib",
@@ -15,6 +15,12 @@ use rnix::{SyntaxElement, ast::With};
 /// `with` expressions shadow the namespace.
 pub struct NoWithPkgsLib;
 
+impl Default for NoWithPkgsLib {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl NoWithPkgsLib {
     fn check(&self, node: &SyntaxElement) -> Option<Report> {
         if let SyntaxElement::Node(node) = node {
@@ -22,7 +28,10 @@ impl NoWithPkgsLib {
                 if let Some(namespace) = with_expr.namespace() {
                     let text = namespace.syntax().to_string();
                     if text == "pkgs" || text == "lib" {
-                        return Some(self.report().diagnostic(node.text_range(), format!("with {text} found. Import specific identifiers explicitly.")));
+                        return Some(self.report().diagnostic(
+                            node.text_range(),
+                            format!("with {text} found. Import specific identifiers explicitly."),
+                        ));
                     }
                 }
             }
@@ -33,6 +42,7 @@ impl NoWithPkgsLib {
 
 #[cfg(test)]
 mod tests {
+    #![allow(dead_code)]
     use super::*;
     use nix_lint_core::LintRegistry;
 

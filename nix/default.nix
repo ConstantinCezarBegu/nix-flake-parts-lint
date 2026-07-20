@@ -20,7 +20,7 @@ rustPlatform.buildRustPackage {
 
   meta = with lib; {
     description = "AST-based linter for Nix Flake Parts projects";
-    homepage = "https://github.com/anomalyco/nix-flake-parts-lint";
+    homepage = "https://github.com/ConstantinCezarBegu/nix-flake-parts-lint";
     license = licenses.mit;
     platforms = platforms.all;
   };

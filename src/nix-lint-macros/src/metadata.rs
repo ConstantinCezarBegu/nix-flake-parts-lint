@@ -66,7 +66,10 @@ fn extract_u32(raw: &RawLintMeta, id: &str) -> u32 {
 fn extract_match_with(raw: &RawLintMeta) -> MatchWith {
     let expr = raw
         .0
-        .get(&syn::Ident::new("match_with", proc_macro2::Span::call_site()))
+        .get(&syn::Ident::new(
+            "match_with",
+            proc_macro2::Span::call_site(),
+        ))
         .expect("`match_with` required in #[lint(...)]")
         .clone();
 
@@ -83,10 +86,7 @@ fn extract_match_with(raw: &RawLintMeta) -> MatchWith {
                 .iter()
                 .filter_map(|e| {
                     if let Expr::Path(p) = e {
-                        p.path
-                            .segments
-                            .last()
-                            .map(|s| s.ident.clone())
+                        p.path.segments.last().map(|s| s.ident.clone())
                     } else {
                         None
                     }
@@ -99,19 +99,23 @@ fn extract_match_with(raw: &RawLintMeta) -> MatchWith {
 
 fn extract_severity(raw: &RawLintMeta) -> TokenStream2 {
     let default_severity = quote! { ::nix_lint_core::Severity::Warn };
-    
+
     raw.0
         .get(&syn::Ident::new("severity", proc_macro2::Span::call_site()))
         .map(|expr| {
             if let Expr::Path(p) = expr {
-                p.path.segments.last().map(|s| {
-                    let seg_name = s.ident.to_string();
-                    match seg_name.as_str() {
-                        "Error" => quote! { ::nix_lint_core::Severity::Error },
-                        "Hint" => quote! { ::nix_lint_core::Severity::Hint },
-                        _ => default_severity.clone(),
-                    }
-                }).unwrap_or(default_severity.clone())
+                p.path
+                    .segments
+                    .last()
+                    .map(|s| {
+                        let seg_name = s.ident.to_string();
+                        match seg_name.as_str() {
+                            "Error" => quote! { ::nix_lint_core::Severity::Error },
+                            "Hint" => quote! { ::nix_lint_core::Severity::Hint },
+                            _ => default_severity.clone(),
+                        }
+                    })
+                    .unwrap_or(default_severity.clone())
             } else {
                 default_severity.clone()
             }
@@ -125,10 +129,10 @@ trait IntoSynLitStr {
 
 impl IntoSynLitStr for Expr {
     fn into_syn_lit_str(self) -> Option<syn::LitStr> {
-        if let Expr::Lit(expr_lit) = self {
-            if let syn::Lit::Str(lit_str) = expr_lit.lit {
-                return Some(lit_str);
-            }
+        if let Expr::Lit(expr_lit) = self
+            && let syn::Lit::Str(lit_str) = expr_lit.lit
+        {
+            return Some(lit_str);
         }
         None
     }
@@ -169,17 +173,20 @@ fn generate_match_with_fn(match_with: &MatchWith) -> TokenStream2 {
     match match_with {
         MatchWith::Single(ident) => {
             quote! {
-                fn match_with(&self, kind: &rnix::SyntaxKind) -> bool {
-                    *kind == rnix::SyntaxKind::#ident
+                fn match_with(&self, kind: &crate::rnix::SyntaxKind) -> bool {
+                    *kind == crate::rnix::SyntaxKind::#ident
                 }
             }
         }
         MatchWith::Multiple(idents) => {
-            let kinds: Vec<_> = idents.iter().map(|ident| {
-                quote! { rnix::SyntaxKind::#ident }
-            }).collect();
+            let kinds: Vec<_> = idents
+                .iter()
+                .map(|ident| {
+                    quote! { crate::rnix::SyntaxKind::#ident }
+                })
+                .collect();
             quote! {
-                fn match_with(&self, kind: &rnix::SyntaxKind) -> bool {
+                fn match_with(&self, kind: &crate::rnix::SyntaxKind) -> bool {
                     [ #( #kinds ),* ].contains(kind)
                 }
             }
@@ -190,13 +197,16 @@ fn generate_match_with_fn(match_with: &MatchWith) -> TokenStream2 {
 fn generate_match_kind_fn(match_with: &MatchWith) -> TokenStream2 {
     match match_with {
         MatchWith::Single(ident) => {
-            quote! { fn match_kind(&self) -> Vec<rnix::SyntaxKind> { vec![rnix::SyntaxKind::#ident] } }
+            quote! { fn match_kind(&self) -> Vec<crate::rnix::SyntaxKind> { vec![crate::rnix::SyntaxKind::#ident] } }
         }
         MatchWith::Multiple(idents) => {
-            let kinds: Vec<_> = idents.iter().map(|ident| {
-                quote! { rnix::SyntaxKind::#ident }
-            }).collect();
-            quote! { fn match_kind(&self) -> Vec<rnix::SyntaxKind> { vec![ #( #kinds ),* ] } }
+            let kinds: Vec<_> = idents
+                .iter()
+                .map(|ident| {
+                    quote! { crate::rnix::SyntaxKind::#ident }
+                })
+                .collect();
+            quote! { fn match_kind(&self) -> Vec<crate::rnix::SyntaxKind> { vec![ #( #kinds ),* ] } }
         }
     }
 }

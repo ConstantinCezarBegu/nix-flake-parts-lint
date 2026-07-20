@@ -1,6 +1,6 @@
+use crate::rnix::{SyntaxElement, ast::AttrSet};
+use crate::rowan::ast::AstNode;
 use nix_lint_core::{Metadata, Report};
-use rowan::ast::AstNode;
-use rnix::{SyntaxElement, ast::AttrSet};
 
 #[nix_lint_macros::lint(
     name = "no-missing-description",
@@ -15,13 +15,22 @@ use rnix::{SyntaxElement, ast::AttrSet};
 /// Options without descriptions make the module harder to understand.
 pub struct NoMissingDescription;
 
+impl Default for NoMissingDescription {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl NoMissingDescription {
     fn check(&self, node: &SyntaxElement) -> Option<Report> {
         if let SyntaxElement::Node(node) = node {
             if let Some(_attrset) = AttrSet::cast(node.clone()) {
                 let text = node.to_string();
                 if text.contains("mkOption") && !text.contains("description") {
-                    return Some(self.report().diagnostic(node.text_range(), "mkOption without description found."));
+                    return Some(
+                        self.report()
+                            .diagnostic(node.text_range(), "mkOption without description found."),
+                    );
                 }
             }
         }
@@ -31,6 +40,7 @@ impl NoMissingDescription {
 
 #[cfg(test)]
 mod tests {
+    #![allow(dead_code)]
     use super::*;
     use nix_lint_core::LintRegistry;
 

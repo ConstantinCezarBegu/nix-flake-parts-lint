@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v27
+        with:
+          nix_path: nixpkgs=channel:nixos-unstable
+
+      - name: Cache Cargo registry
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache Cargo index
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run cargo check
+        run: nix-shell -p gcc -p cargo -p clippy -p rustfmt --run 'cargo check --all'
+
+      - name: Run cargo clippy
+        run: nix-shell -p gcc -p cargo -p clippy -p rustfmt --run 'cargo clippy --all-targets --all-features -- -D warnings'
+
+      - name: Run cargo fmt check
+        run: nix-shell -p gcc -p cargo -p clippy -p rustfmt --run 'cargo fmt --all -- --check'
+
+      - name: Run cargo test
+        run: nix-shell -p gcc -p cargo -p clippy -p rustfmt --run 'cargo test --all'

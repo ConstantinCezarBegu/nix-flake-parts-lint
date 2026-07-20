@@ -1,6 +1,9 @@
+use crate::rnix::{
+    SyntaxElement,
+    ast::{BinOp, BinOpKind},
+};
+use crate::rowan::ast::AstNode;
 use nix_lint_core::{Metadata, Report};
-use rowan::ast::AstNode;
-use rnix::{SyntaxElement, ast::{BinOp, BinOpKind}};
 
 #[nix_lint_macros::lint(
     name = "bool-equals-true",
@@ -15,6 +18,12 @@ use rnix::{SyntaxElement, ast::{BinOp, BinOpKind}};
 /// Unnecessary code. Use the boolean expression directly.
 pub struct BoolEqualsTrue;
 
+impl Default for BoolEqualsTrue {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BoolEqualsTrue {
     fn check(&self, node: &SyntaxElement) -> Option<Report> {
         if let SyntaxElement::Node(node) = node {
@@ -24,7 +33,7 @@ impl BoolEqualsTrue {
                     let rhs_text = rhs.syntax().to_string();
                     let is_eq = matches!(bin_op.operator(), Some(BinOpKind::Equal));
                     let is_neq = matches!(bin_op.operator(), Some(BinOpKind::NotEqual));
-                    
+
                     if is_eq || is_neq {
                         let (target, other) = if lhs_text == "true" {
                             (Some("true"), rhs_text)
@@ -37,7 +46,7 @@ impl BoolEqualsTrue {
                         } else {
                             (None, String::new())
                         };
-                        
+
                         if let Some(target) = target {
                             if !other.is_empty() {
                                 let msg = if is_eq {
@@ -58,6 +67,7 @@ impl BoolEqualsTrue {
 
 #[cfg(test)]
 mod tests {
+    #![allow(dead_code)]
     use super::*;
     use nix_lint_core::LintRegistry;
 

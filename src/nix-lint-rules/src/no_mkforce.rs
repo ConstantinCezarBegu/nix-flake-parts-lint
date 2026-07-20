@@ -1,6 +1,6 @@
+use crate::rnix::{SyntaxElement, ast::Ident};
+use crate::rowan::ast::AstNode;
 use nix_lint_core::{Metadata, Report};
-use rowan::ast::AstNode;
-use rnix::{SyntaxElement, ast::Ident};
 
 #[nix_lint_macros::lint(
     name = "no-mkforce",
@@ -15,12 +15,21 @@ use rnix::{SyntaxElement, ast::Ident};
 /// `mkForce` breaks the module system's priority model.
 pub struct NoMkForce;
 
+impl Default for NoMkForce {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl NoMkForce {
     fn check(&self, node: &SyntaxElement) -> Option<Report> {
         if let SyntaxElement::Node(node) = node {
             if let Some(ident) = Ident::cast(node.clone()) {
                 if ident.to_string() == "mkForce" {
-                    return Some(self.report().diagnostic(node.text_range(), "mkForce found. Use module priority or proper composition instead."));
+                    return Some(self.report().diagnostic(
+                        node.text_range(),
+                        "mkForce found. Use module priority or proper composition instead.",
+                    ));
                 }
             }
         }
@@ -30,6 +39,7 @@ impl NoMkForce {
 
 #[cfg(test)]
 mod tests {
+    #![allow(dead_code)]
     use super::*;
     use nix_lint_core::LintRegistry;
 

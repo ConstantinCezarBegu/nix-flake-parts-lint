@@ -1,6 +1,15 @@
+//! Core types and traits for the nix-flake-parts linter.
+
 use std::{collections::HashMap, path::Path};
 
-use rnix::{parser::ParseError, SyntaxElement, SyntaxKind, SyntaxNode, TextRange};
+use rnix::parser::ParseError;
+
+// ── Re-exports for downstream crates ────────────────────────────────────────
+
+pub use rnix;
+pub use rnix::{SyntaxElement, SyntaxKind, SyntaxNode, TextRange};
+pub use rowan;
+pub use rowan::ast::AstNode;
 
 // ── Severity ────────────────────────────────────────────────────────────────
 
@@ -14,6 +23,7 @@ pub enum Severity {
 // ── Report / Diagnostic ─────────────────────────────────────────────────────
 
 #[derive(Debug, Clone)]
+#[must_use]
 pub struct Report {
     pub note: &'static str,
     pub code: u32,
@@ -22,6 +32,7 @@ pub struct Report {
 }
 
 #[derive(Debug, Clone)]
+#[must_use]
 pub struct Diagnostic {
     pub message: String,
     pub at: TextRange,
@@ -34,7 +45,7 @@ impl Report {
             code: 0,
             severity: Severity::Error,
             diagnostics: vec![Diagnostic {
-                message: format!("{:?}", err),
+                message: err.to_string(),
                 at: TextRange::empty(0.into()),
             }],
         }
@@ -58,18 +69,20 @@ impl Report {
     }
 
     pub fn total_range(&self) -> Option<TextRange> {
-        if self.diagnostics.is_empty() {
-            return None;
-        }
-        let mut start: u32 = u32::MAX;
-        let mut end: u32 = 0;
-        for d in &self.diagnostics {
-            let s = d.at.start().into();
-            let e = d.at.end().into();
-            if s < start { start = s; }
-            if e > end { end = e; }
-        }
-        Some(TextRange::new(start.into(), end.into()))
+        self.diagnostics.first().map(|_| {
+            TextRange::new(
+                self.diagnostics
+                    .iter()
+                    .map(|d| d.at.start())
+                    .min()
+                    .unwrap_or_default(),
+                self.diagnostics
+                    .iter()
+                    .map(|d| d.at.end())
+                    .max()
+                    .unwrap_or_default(),
+            )
+        })
     }
 }
 
@@ -107,6 +120,12 @@ pub struct LintRegistry {
     lints: Vec<Box<dyn Lint>>,
     index: HashMap<SyntaxKind, Vec<usize>>,
     file_level_rules: Vec<Box<dyn FileLevelRule>>,
+}
+
+impl Default for LintRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl LintRegistry {
@@ -162,9 +181,9 @@ impl LintRegistry {
     }
 }
 
-// ── Lint trait (combines Metadata + Rule) ───────────────────────────────────
+// ── Lint trait (combines Metadata + Rule + Explain) ─────────────────────────
 // Each rule struct implements this via the #[lint] proc-macro
-pub trait Lint: Metadata + Rule {
+pub trait Lint: Metadata + Rule + Explain {
     fn as_rule(&self) -> &dyn Rule;
 }
 
@@ -206,6 +225,7 @@ pub fn lint_file(registry: &LintRegistry, src: &str) -> Result<Vec<Report>, Pars
 // ── File-level rules ────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone)]
+#[must_use]
 pub struct FileLevelReport {
     pub file: String,
     pub message: String,
@@ -227,7 +247,11 @@ pub trait FileLevelRule: Send + Sync {
 
 // ── Walk helpers ────────────────────────────────────────────────────────────
 
-fn walk_node(registry: &LintRegistry, node: &SyntaxNode, out: &mut HashMap<u32, (Severity, Vec<Diagnostic>)>) {
+fn walk_node(
+    registry: &LintRegistry,
+    node: &SyntaxNode,
+    out: &mut HashMap<u32, (Severity, Vec<Diagnostic>)>,
+) {
     for child in node.children_with_tokens() {
         run_node(registry, &child, out);
         if let SyntaxElement::Node(n) = &child {
@@ -236,7 +260,11 @@ fn walk_node(registry: &LintRegistry, node: &SyntaxNode, out: &mut HashMap<u32, 
     }
 }
 
-fn run_node(registry: &LintRegistry, node: &SyntaxElement, out: &mut HashMap<u32, (Severity, Vec<Diagnostic>)>) {
+fn run_node(
+    registry: &LintRegistry,
+    node: &SyntaxElement,
+    out: &mut HashMap<u32, (Severity, Vec<Diagnostic>)>,
+) {
     let kind = node.kind();
     for &idx in registry.for_kind(&kind) {
         let lint = &registry.lints()[idx];

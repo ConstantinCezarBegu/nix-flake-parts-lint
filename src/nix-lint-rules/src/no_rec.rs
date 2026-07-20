@@ -1,6 +1,6 @@
+use crate::rnix::{SyntaxElement, ast::AttrSet};
+use crate::rowan::ast::AstNode;
 use nix_lint_core::{Metadata, Report};
-use rowan::ast::AstNode;
-use rnix::{SyntaxElement, ast::AttrSet};
 
 #[nix_lint_macros::lint(
     name = "no-rec",
@@ -16,12 +16,23 @@ use rnix::{SyntaxElement, ast::AttrSet};
 /// graph implicit. Use explicit `let` bindings instead.
 pub struct NoRec;
 
+impl Default for NoRec {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl NoRec {
     fn check(&self, node: &SyntaxElement) -> Option<Report> {
         if let SyntaxElement::Node(syntax) = node {
             if let Some(attrset) = AttrSet::cast(syntax.clone()) {
                 if attrset.rec_token().is_some() {
-                    return Some(self.report().diagnostic(node.text_range(), "rec {} found. Use let bindings instead."));
+                    return Some(
+                        self.report().diagnostic(
+                            node.text_range(),
+                            "rec {} found. Use let bindings instead.",
+                        ),
+                    );
                 }
             }
         }
@@ -31,6 +42,7 @@ impl NoRec {
 
 #[cfg(test)]
 mod tests {
+    #![allow(dead_code)]
     use super::*;
     use nix_lint_core::LintRegistry;
 

@@ -1,35 +1,61 @@
 use std::path::Path;
 
-use nix_lint_core::{FileLevelRule, FileLevelReport, Severity};
+use nix_lint_core::{FileLevelReport, FileLevelRule, Severity};
 use regex::Regex;
 
 pub struct NoCrossNamespaceWrites;
 
 impl NoCrossNamespaceWrites {
-    pub fn new() -> Self { Self }
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl Default for NoCrossNamespaceWrites {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl FileLevelRule for NoCrossNamespaceWrites {
-    fn code(&self) -> u32 { 117 }
-    fn name(&self) -> &'static str { "no-cross-namespace-writes" }
-    fn severity(&self) -> Severity { Severity::Error }
-    fn note(&self) -> &'static str { "Module writes to config namespace not declared as options in this file." }
+    fn code(&self) -> u32 {
+        117
+    }
+    fn name(&self) -> &'static str {
+        "no-cross-namespace-writes"
+    }
+    fn severity(&self) -> Severity {
+        Severity::Error
+    }
+    fn note(&self) -> &'static str {
+        "Module writes to config namespace not declared as options in this file."
+    }
 
     fn validate_file(&self, path: &Path, content: &str) -> Option<FileLevelReport> {
         let options_re = Regex::new(r"\boptions\.([a-zA-Z_]\w*)").unwrap();
-        let declared: Vec<&str> = options_re.captures_iter(content).filter_map(|c| c.get(1)).map(|m| m.as_str()).collect();
-        if declared.is_empty() { return None; }
+        let declared: Vec<&str> = options_re
+            .captures_iter(content)
+            .filter_map(|c| c.get(1))
+            .map(|m| m.as_str())
+            .collect();
+        if declared.is_empty() {
+            return None;
+        }
         let declared_set: std::collections::HashSet<&str> = declared.iter().copied().collect();
 
         // Match config.<namespace> where it's NOT preceded by identifier or dot chars (nested paths)
         // Uses capture group 1 for context char and group 2 for namespace
-        let config_write_re = Regex::new(r"([^a-zA-Z0-9_.])config\.([a-zA-Z_]\w*)(?:\s*=|\.)").unwrap();
+        let config_write_re =
+            Regex::new(r"([^a-zA-Z0-9_.])config\.([a-zA-Z_]\w*)(?:\s*=|\.)").unwrap();
         for cap in config_write_re.captures_iter(content) {
             let ns = cap.get(2)?.as_str();
             if !declared_set.contains(ns) {
                 return Some(FileLevelReport {
                     file: path.to_string_lossy().into_owned(),
-                    message: format!("Module writes to config.{} but does not declare options.{} in this file.", ns, ns),
+                    message: format!(
+                        "Module writes to config.{} but does not declare options.{} in this file.",
+                        ns, ns
+                    ),
                     note: self.note(),
                     code: self.code(),
                     severity: self.severity(),
@@ -46,6 +72,7 @@ impl FileLevelRule for NoCrossNamespaceWrites {
 
 #[cfg(test)]
 mod tests {
+    #![allow(dead_code)]
     use super::*;
     use std::path::PathBuf;
 
