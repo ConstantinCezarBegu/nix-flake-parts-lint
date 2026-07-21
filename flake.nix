@@ -13,6 +13,11 @@
       systems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
 
       perSystem = { config, self', pkgs, system, ... }: {
+        checks = {
+          nix-lint = self'.packages.nix-lint;
+          default = self'.checks.nix-lint;
+        };
+
         packages = {
           nix-lint = pkgs.rustPlatform.buildRustPackage {
             pname = "nix-lint";

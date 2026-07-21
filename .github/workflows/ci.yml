@@ -6,40 +6,51 @@ on:
   pull_request:
     branches: [main]
 
-env:
-  CARGO_TERM_COLOR: always
-
 jobs:
-  build:
+  cargo:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Nix
-        uses: cachix/install-nix-action@v27
+      - uses: cachix/install-nix-action@v27
         with:
           nix_path: nixpkgs=channel:nixos-unstable
 
-      - name: Cache Cargo registry
-        uses: actions/cache@v4
+      - uses: cachix/cachix-action@v13
         with:
-          path: ~/.cargo/registry
-          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          name: rust
+          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+          skipPush: true
 
-      - name: Cache Cargo index
-        uses: actions/cache@v4
+      - name: Cargo check
+        run: nix develop --command cargo check --all
+
+      - name: Cargo clippy
+        run: nix develop --command cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Cargo fmt check
+        run: nix develop --command cargo fmt --all -- --check
+
+      - name: Cargo test
+        run: nix develop --command cargo test --all
+
+  nix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: cachix/install-nix-action@v27
         with:
-          path: ~/.cargo/git
-          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+          nix_path: nixpkgs=channel:nixos-unstable
 
-      - name: Run cargo check
-        run: nix-shell -p gcc -p cargo -p clippy -p rustfmt --run 'cargo check --all'
+      - uses: cachix/cachix-action@v13
+        with:
+          name: rust
+          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+          skipPush: true
 
-      - name: Run cargo clippy
-        run: nix-shell -p gcc -p cargo -p clippy -p rustfmt --run 'cargo clippy --all-targets --all-features -- -D warnings'
+      - name: Nix flake check
+        run: nix flake check
 
-      - name: Run cargo fmt check
-        run: nix-shell -p gcc -p cargo -p clippy -p rustfmt --run 'cargo fmt --all -- --check'
-
-      - name: Run cargo test
-        run: nix-shell -p gcc -p cargo -p clippy -p rustfmt --run 'cargo test --all'
+      - name: Nix build
+        run: nix build

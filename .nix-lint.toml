@@ -1,0 +1,10 @@
+# nix-lint configuration
+#
+# List of rule names to disable (e.g., "no-rec", "no-secrets").
+# The linter searches upward from the linted path for the nearest .nix-lint.toml.
+
+[disabled]
+rules = [
+  # "no-rec",
+  # "no-secrets",
+]

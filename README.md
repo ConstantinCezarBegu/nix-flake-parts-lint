@@ -36,6 +36,20 @@ nix-lint <directory>
 
 The linter will recursively scan the directory for `.nix` files and report any issues found.
 
+### Configuration
+
+Place a `.nix-lint.toml` file at the root of your project (or any parent directory) to disable rules:
+
+```toml
+[disabled]
+rules = [
+  "no-rec",
+  "no-secrets",
+]
+```
+
+The linter searches upward from the linted path, using the first `.nix-lint.toml` found.
+
 ### Exit codes
 
 - `0` - No issues found

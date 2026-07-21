@@ -6,7 +6,7 @@
 
 mod registry;
 
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::OnceLock;
@@ -42,7 +42,7 @@ enum Commands {
 
 #[derive(Debug, Default)]
 struct ConfigFile {
-    disabled: HashSet<String>,
+    disabled: BTreeSet<String>,
 }
 
 static CONFIG: OnceLock<ConfigFile> = OnceLock::new();
@@ -74,21 +74,22 @@ fn search_config_file(start: &std::path::Path) -> ConfigFile {
 }
 
 fn parse_config(content: &str) -> ConfigFile {
+    let parsed: toml::Value = match content.parse() {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("Warning: failed to parse .nix-lint.toml: {}", e);
+            return ConfigFile::default();
+        }
+    };
+
     let mut config = ConfigFile::default();
 
-    for line in content.lines() {
-        let line = line.trim();
-        if line.starts_with('#') || line.is_empty() {
-            continue;
-        }
-
-        if let Some(value) = line.strip_prefix("disabled = [") {
-            if let Some(end) = value.find(']') {
-                let items = &value[..end];
-                for item in items.split(',') {
-                    let item = item.trim().trim_matches('"').trim_matches('\'');
-                    if !item.is_empty() {
-                        config.disabled.insert(item.to_string());
+    if let Some(disabled) = parsed.get("disabled") {
+        if let Some(rules) = disabled.get("rules") {
+            if let Some(array) = rules.as_array() {
+                for value in array {
+                    if let Some(name) = value.as_str() {
+                        config.disabled.insert(name.to_string());
                     }
                 }
             }
