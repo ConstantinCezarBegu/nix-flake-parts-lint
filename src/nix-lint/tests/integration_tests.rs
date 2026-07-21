@@ -10,7 +10,7 @@ fn project_root() -> PathBuf {
 }
 
 fn lint_command() -> Command {
-    let mut cmd = Command::new(env!("CARGO_BIN_EXE_nix-lint"));
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_nix_flake_parts_lint"));
     cmd.current_dir(project_root());
     cmd
 }
