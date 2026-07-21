@@ -14,9 +14,9 @@ use clap::{Parser, Subcommand};
 use nix_lint_core::LintRegistry;
 use rayon::prelude::*;
 
-/// nix-lint: static analysis for Nix flake-parts configurations
+/// nix-flake-parts-lint: static analysis for Nix flake-parts configurations
 #[derive(Parser, Debug)]
-#[command(name = "nix-lint", version, about)]
+#[command(name = "nix-flake-parts-lint", version, about)]
 struct Cli {
     /// Path to directory or file to lint
     #[arg(name = "path")]

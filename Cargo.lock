@@ -206,7 +206,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "nix-lint"
+name = "nix-flake-parts-lint"
 version = "0.1.0"
 dependencies = [
  "clap",
