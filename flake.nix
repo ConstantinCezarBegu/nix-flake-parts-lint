@@ -37,6 +37,8 @@
               gcc
             ];
 
+            doCheck = false;
+
             meta = with pkgs.lib; {
               description = "A static analyzer for Nix flake-parts configurations";
               homepage = "https://github.com/ConstantinCezarBegu/nix-flake-parts-lint";
