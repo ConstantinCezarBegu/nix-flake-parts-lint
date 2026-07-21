@@ -23,17 +23,16 @@ impl Default for NoWithPkgsLib {
 
 impl NoWithPkgsLib {
     fn check(&self, node: &SyntaxElement) -> Option<Report> {
-        if let SyntaxElement::Node(node) = node {
-            if let Some(with_expr) = With::cast(node.clone()) {
-                if let Some(namespace) = with_expr.namespace() {
-                    let text = namespace.syntax().to_string();
-                    if text == "pkgs" || text == "lib" {
-                        return Some(self.report().diagnostic(
-                            node.text_range(),
-                            format!("with {text} found. Import specific identifiers explicitly."),
-                        ));
-                    }
-                }
+        if let SyntaxElement::Node(node) = node
+            && let Some(with_expr) = With::cast(node.clone())
+            && let Some(namespace) = with_expr.namespace()
+        {
+            let text = namespace.syntax().to_string();
+            if text == "pkgs" || text == "lib" {
+                return Some(self.report().diagnostic(
+                    node.text_range(),
+                    format!("with {text} found. Import specific identifiers explicitly."),
+                ));
             }
         }
         None
@@ -42,7 +41,6 @@ impl NoWithPkgsLib {
 
 #[cfg(test)]
 mod tests {
-    #![allow(dead_code)]
     use super::*;
     use nix_lint_core::LintRegistry;
 

@@ -26,24 +26,22 @@ impl Default for NoDefaults {
 
 impl NoDefaults {
     fn check(&self, node: &SyntaxElement) -> Option<Report> {
-        if let SyntaxElement::Node(node) = node {
-            if let Some(attrset) = AttrSet::cast(node.clone()) {
-                let parent_text = node.parent().map(|p| p.to_string()).unwrap_or_default();
-                if !parent_text.contains("mkOption") {
-                    return None;
-                }
-                for entry in attrset.attrpath_values() {
-                    if let Some(attrpath) = entry.attrpath() {
-                        let mut attrs: Vec<_> = attrpath.attrs().collect();
-                        if attrs.len() == 1 {
-                            if let Some(ident) =
-                                crate::rnix::ast::Ident::cast(attrs.pop().unwrap().syntax().clone())
-                            {
-                                if ident.to_string() == "default" {
-                                    return Some(self.report().diagnostic(node.text_range(), "mkOption with default found. All custom options must be set explicitly per host."));
-                                }
-                            }
-                        }
+        if let SyntaxElement::Node(node) = node
+            && let Some(attrset) = AttrSet::cast(node.clone())
+        {
+            let parent_text = node.parent().map(|p| p.to_string()).unwrap_or_default();
+            if !parent_text.contains("mkOption") {
+                return None;
+            }
+            for entry in attrset.attrpath_values() {
+                if let Some(attrpath) = entry.attrpath() {
+                    let mut attrs: Vec<_> = attrpath.attrs().collect();
+                    if attrs.len() == 1
+                        && let Some(ident) =
+                            crate::rnix::ast::Ident::cast(attrs.pop().unwrap().syntax().clone())
+                        && ident.to_string() == "default"
+                    {
+                        return Some(self.report().diagnostic(node.text_range(), "mkOption with default found. All custom options must be set explicitly per host."));
                     }
                 }
             }
@@ -54,7 +52,6 @@ impl NoDefaults {
 
 #[cfg(test)]
 mod tests {
-    #![allow(dead_code)]
     use super::*;
     use nix_lint_core::LintRegistry;
 

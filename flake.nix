@@ -41,7 +41,7 @@
               description = "A static analyzer for Nix flake-parts configurations";
               homepage = "https://github.com/ConstantinCezarBegu/nix-flake-parts-lint";
               license = licenses.mit;
-              platforms = platforms.linux;
+              platforms = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
             };
           };
           default = self'.packages.nix-lint;

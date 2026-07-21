@@ -26,38 +26,37 @@ impl Default for BoolEqualsTrue {
 
 impl BoolEqualsTrue {
     fn check(&self, node: &SyntaxElement) -> Option<Report> {
-        if let SyntaxElement::Node(node) = node {
-            if let Some(bin_op) = BinOp::cast(node.clone()) {
-                if let (Some(lhs), Some(rhs)) = (bin_op.lhs(), bin_op.rhs()) {
-                    let lhs_text = lhs.syntax().to_string();
-                    let rhs_text = rhs.syntax().to_string();
-                    let is_eq = matches!(bin_op.operator(), Some(BinOpKind::Equal));
-                    let is_neq = matches!(bin_op.operator(), Some(BinOpKind::NotEqual));
+        if let SyntaxElement::Node(node) = node
+            && let Some(bin_op) = BinOp::cast(node.clone())
+            && let (Some(lhs), Some(rhs)) = (bin_op.lhs(), bin_op.rhs())
+        {
+            let lhs_text = lhs.syntax().to_string();
+            let rhs_text = rhs.syntax().to_string();
+            let is_eq = matches!(bin_op.operator(), Some(BinOpKind::Equal));
+            let is_neq = matches!(bin_op.operator(), Some(BinOpKind::NotEqual));
 
-                    if is_eq || is_neq {
-                        let (target, other) = if lhs_text == "true" {
-                            (Some("true"), rhs_text)
-                        } else if lhs_text == "false" {
-                            (Some("false"), rhs_text)
-                        } else if rhs_text == "true" {
-                            (Some("true"), lhs_text)
-                        } else if rhs_text == "false" {
-                            (Some("false"), lhs_text)
-                        } else {
-                            (None, String::new())
-                        };
+            if is_eq || is_neq {
+                let (target, other) = if lhs_text == "true" {
+                    (Some("true"), rhs_text)
+                } else if lhs_text == "false" {
+                    (Some("false"), rhs_text)
+                } else if rhs_text == "true" {
+                    (Some("true"), lhs_text)
+                } else if rhs_text == "false" {
+                    (Some("false"), lhs_text)
+                } else {
+                    (None, String::new())
+                };
 
-                        if let Some(target) = target {
-                            if !other.is_empty() {
-                                let msg = if is_eq {
-                                    format!("{other} == {target} found. Use {other} directly.")
-                                } else {
-                                    format!("{other} != {target} found. Use !{other} instead.")
-                                };
-                                return Some(self.report().diagnostic(node.text_range(), msg));
-                            }
-                        }
-                    }
+                if let Some(target) = target
+                    && !other.is_empty()
+                {
+                    let msg = if is_eq {
+                        format!("{other} == {target} found. Use {other} directly.")
+                    } else {
+                        format!("{other} != {target} found. Use !{other} instead.")
+                    };
+                    return Some(self.report().diagnostic(node.text_range(), msg));
                 }
             }
         }
@@ -67,7 +66,6 @@ impl BoolEqualsTrue {
 
 #[cfg(test)]
 mod tests {
-    #![allow(dead_code)]
     use super::*;
     use nix_lint_core::LintRegistry;
 

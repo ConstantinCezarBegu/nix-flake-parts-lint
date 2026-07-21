@@ -23,29 +23,22 @@ impl Default for NoOptional {
 
 impl NoOptional {
     fn check(&self, node: &SyntaxElement) -> Option<Report> {
-        if let SyntaxElement::Node(node) = node {
-            if let Some(ident) = Ident::cast(node.clone()) {
-                let name = ident.to_string();
-                if name == "optional" || name == "optionally" || name == "optionalString" {
-                    if let Some(parent) = node.parent() {
-                        if let Some(grandparent) = parent.parent() {
-                            if let Some(select) =
-                                crate::rnix::ast::Select::cast(grandparent.clone())
-                            {
-                                if let Some(expr) = select.expr() {
-                                    let expr_text = expr.syntax().to_string();
-                                    if expr_text == "lib" || expr_text == "lib.types" {
-                                        return Some(self.report().diagnostic(
-                                            node.text_range(),
-                                            format!(
-                                                "lib.{name} found. Use if/then or mkIf instead."
-                                            ),
-                                        ));
-                                    }
-                                }
-                            }
-                        }
-                    }
+        if let SyntaxElement::Node(node) = node
+            && let Some(ident) = Ident::cast(node.clone())
+        {
+            let name = ident.to_string();
+            if (name == "optional" || name == "optionally" || name == "optionalString")
+                && let Some(parent) = node.parent()
+                && let Some(grandparent) = parent.parent()
+                && let Some(select) = crate::rnix::ast::Select::cast(grandparent.clone())
+                && let Some(expr) = select.expr()
+            {
+                let expr_text = expr.syntax().to_string();
+                if expr_text == "lib" || expr_text == "lib.types" {
+                    return Some(self.report().diagnostic(
+                        node.text_range(),
+                        format!("lib.{name} found. Use if/then or mkIf instead."),
+                    ));
                 }
             }
         }
@@ -55,7 +48,6 @@ impl NoOptional {
 
 #[cfg(test)]
 mod tests {
-    #![allow(dead_code)]
     use super::*;
     use nix_lint_core::LintRegistry;
 

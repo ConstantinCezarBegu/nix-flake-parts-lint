@@ -2,8 +2,6 @@
 //!
 //! Ported from the shell-based rules in nix/rules/ to Rust with the rnix parser.
 
-#![allow(clippy::collapsible_if)]
-
 mod registry;
 
 use std::collections::BTreeSet;
@@ -56,10 +54,10 @@ fn search_config_file(start: &std::path::Path) -> ConfigFile {
 
     for _ in 0..20 {
         let config_path = current.join(".nix-lint.toml");
-        if config_path.is_file() {
-            if let Ok(content) = fs::read_to_string(&config_path) {
-                return parse_config(&content);
-            }
+        if config_path.is_file()
+            && let Ok(content) = fs::read_to_string(&config_path)
+        {
+            return parse_config(&content);
         }
 
         match current.parent() {
@@ -84,14 +82,13 @@ fn parse_config(content: &str) -> ConfigFile {
 
     let mut config = ConfigFile::default();
 
-    if let Some(disabled) = parsed.get("disabled") {
-        if let Some(rules) = disabled.get("rules") {
-            if let Some(array) = rules.as_array() {
-                for value in array {
-                    if let Some(name) = value.as_str() {
-                        config.disabled.insert(name.to_string());
-                    }
-                }
+    if let Some(disabled) = parsed.get("disabled")
+        && let Some(rules) = disabled.get("rules")
+        && let Some(array) = rules.as_array()
+    {
+        for value in array {
+            if let Some(name) = value.as_str() {
+                config.disabled.insert(name.to_string());
             }
         }
     }
@@ -184,15 +181,14 @@ struct FileEntry {
 
 fn collect_nix_files(dir: &std::path::Path) -> Vec<FileEntry> {
     if dir.is_file() {
-        if let Some(ext) = dir.extension() {
-            if ext == "nix" {
-                if let Ok(content) = fs::read_to_string(dir) {
-                    return vec![FileEntry {
-                        path: dir.to_path_buf(),
-                        content,
-                    }];
-                }
-            }
+        if let Some(ext) = dir.extension()
+            && ext == "nix"
+            && let Ok(content) = fs::read_to_string(dir)
+        {
+            return vec![FileEntry {
+                path: dir.to_path_buf(),
+                content,
+            }];
         }
         return Vec::new();
     }
@@ -231,10 +227,10 @@ fn collect_nix_files_inner(dir: &std::path::Path, files: &mut Vec<FileEntry>) {
                 continue;
             }
             collect_nix_files_inner(&path, files);
-        } else if path.extension().is_some_and(|ext| ext == "nix") {
-            if let Ok(content) = fs::read_to_string(&path) {
-                files.push(FileEntry { path, content });
-            }
+        } else if path.extension().is_some_and(|ext| ext == "nix")
+            && let Ok(content) = fs::read_to_string(&path)
+        {
+            files.push(FileEntry { path, content });
         }
     }
 }

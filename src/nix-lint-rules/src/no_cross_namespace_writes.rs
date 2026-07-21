@@ -72,7 +72,6 @@ impl FileLevelRule for NoCrossNamespaceWrites {
 
 #[cfg(test)]
 mod tests {
-    #![allow(dead_code)]
     use super::*;
     use std::path::PathBuf;
 

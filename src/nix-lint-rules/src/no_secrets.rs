@@ -1,3 +1,5 @@
+use std::sync::LazyLock;
+
 use crate::rnix::{
     NixLanguage, SyntaxElement,
     ast::{AttrpathValue, Str},
@@ -5,6 +7,16 @@ use crate::rnix::{
 use crate::rowan::ast::AstNode;
 use nix_lint_core::{Metadata, Report};
 use regex::Regex;
+
+static SECRET_KEYWORD_PATTERNS: LazyLock<Vec<Regex>> = LazyLock::new(|| {
+    vec![
+        Regex::new(r"^api[_\-]?key$").unwrap(),
+        Regex::new(r"^api[_\-]?token$").unwrap(),
+        Regex::new(r"^password$").unwrap(),
+        Regex::new(r"^secret[_\-]?\w*$").unwrap(),
+        Regex::new(r"^\w*[_\-]?token$").unwrap(),
+    ]
+});
 
 #[nix_lint_macros::lint(
     name = "no-secrets",
@@ -27,25 +39,25 @@ impl Default for NoSecrets {
 
 impl NoSecrets {
     fn check(&self, node: &SyntaxElement) -> Option<Report> {
-        if let SyntaxElement::Node(node) = node {
-            if let Some(_str) = Str::cast(node.clone()) {
-                let text = node.to_string();
+        if let SyntaxElement::Node(node) = node
+            && let Some(_str) = Str::cast(node.clone())
+        {
+            let text = node.to_string();
 
-                // Check for private key content
-                if text.contains("BEGIN") && text.contains("PRIVATE KEY") {
-                    return Some(self.report().diagnostic(
-                        node.text_range(),
-                        "Potential secrets in source found. Use agenix or sops-nix.",
-                    ));
-                }
+            // Check for private key content
+            if text.contains("BEGIN") && text.contains("PRIVATE KEY") {
+                return Some(self.report().diagnostic(
+                    node.text_range(),
+                    "Potential secrets in source found. Use agenix or sops-nix.",
+                ));
+            }
 
-                // Check if string is a value of an attribute with a secret-like key name
-                if self.is_secret_value(node) {
-                    return Some(self.report().diagnostic(
-                        node.text_range(),
-                        "Potential secrets in source found. Use agenix or sops-nix.",
-                    ));
-                }
+            // Check if string is a value of an attribute with a secret-like key name
+            if self.is_secret_value(node) {
+                return Some(self.report().diagnostic(
+                    node.text_range(),
+                    "Potential secrets in source found. Use agenix or sops-nix.",
+                ));
             }
         }
         None
@@ -66,16 +78,15 @@ impl NoSecrets {
         }
 
         // Check if this string is a value in an AttrpathValue with a secret-like key
-        if let Some(parent) = str_node.parent() {
-            if let Some(attrpath_value) = AttrpathValue::cast(parent.clone()) {
-                if let Some(attrpath) = attrpath_value.attrpath() {
-                    for attr in attrpath.attrs() {
-                        if let Some(ident) = crate::rnix::ast::Ident::cast(attr.syntax().clone()) {
-                            let key_text = ident.to_string().to_lowercase();
-                            if self.matches_secret_keyword(&key_text) && !self.is_prose(&text) {
-                                return true;
-                            }
-                        }
+        if let Some(parent) = str_node.parent()
+            && let Some(attrpath_value) = AttrpathValue::cast(parent.clone())
+            && let Some(attrpath) = attrpath_value.attrpath()
+        {
+            for attr in attrpath.attrs() {
+                if let Some(ident) = crate::rnix::ast::Ident::cast(attr.syntax().clone()) {
+                    let key_text = ident.to_string().to_lowercase();
+                    if self.matches_secret_keyword(&key_text) && !self.is_prose(&text) {
+                        return true;
                     }
                 }
             }
@@ -84,18 +95,9 @@ impl NoSecrets {
     }
 
     fn matches_secret_keyword(&self, key: &str) -> bool {
-        let patterns = [
-            r"^api[_\-]?key$",
-            r"^api[_\-]?token$",
-            r"^password$",
-            r"^secret[_\-]?\w*$",
-            r"^\w*[_\-]?token$",
-        ];
-        for pattern in &patterns {
-            if let Ok(re) = Regex::new(pattern) {
-                if re.is_match(key) {
-                    return true;
-                }
+        for pattern in &*SECRET_KEYWORD_PATTERNS {
+            if pattern.is_match(key) {
+                return true;
             }
         }
         false
@@ -109,7 +111,6 @@ impl NoSecrets {
 
 #[cfg(test)]
 mod tests {
-    #![allow(dead_code)]
     use super::*;
     use nix_lint_core::LintRegistry;
 

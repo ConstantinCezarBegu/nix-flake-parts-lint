@@ -23,15 +23,15 @@ impl Default for NoMissingDescription {
 
 impl NoMissingDescription {
     fn check(&self, node: &SyntaxElement) -> Option<Report> {
-        if let SyntaxElement::Node(node) = node {
-            if let Some(_attrset) = AttrSet::cast(node.clone()) {
-                let text = node.to_string();
-                if text.contains("mkOption") && !text.contains("description") {
-                    return Some(
-                        self.report()
-                            .diagnostic(node.text_range(), "mkOption without description found."),
-                    );
-                }
+        if let SyntaxElement::Node(node) = node
+            && let Some(_attrset) = AttrSet::cast(node.clone())
+        {
+            let text = node.to_string();
+            if text.contains("mkOption") && !text.contains("description") {
+                return Some(
+                    self.report()
+                        .diagnostic(node.text_range(), "mkOption without description found."),
+                );
             }
         }
         None
@@ -40,7 +40,6 @@ impl NoMissingDescription {
 
 #[cfg(test)]
 mod tests {
-    #![allow(dead_code)]
     use super::*;
     use nix_lint_core::LintRegistry;
 

@@ -57,12 +57,11 @@ impl FileLevelRule for RequireFlakeParts {
         let mut dir = path.parent();
         while let Some(d) = dir {
             let default_nix = d.join("default.nix");
-            if default_nix.is_file() {
-                if let Ok(parent_content) = std::fs::read_to_string(&default_nix) {
-                    if has_flake_modules.is_match(&parent_content) {
-                        return None;
-                    }
-                }
+            if default_nix.is_file()
+                && let Ok(parent_content) = std::fs::read_to_string(&default_nix)
+                && has_flake_modules.is_match(&parent_content)
+            {
+                return None;
             }
             dir = d.parent();
         }
@@ -83,7 +82,6 @@ impl FileLevelRule for RequireFlakeParts {
 
 #[cfg(test)]
 mod tests {
-    #![allow(dead_code)]
     use super::*;
     use std::path::PathBuf;
 
@@ -97,7 +95,7 @@ mod tests {
         let content = r#"{
   # A regular nix file with flake modules
   flake.modules.foo = { lib, ... }: {};
-}"#;
+ }"#;
         let report = rule.validate_file(&make_path("flake.nix"), content);
         assert!(report.is_none());
     }

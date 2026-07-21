@@ -27,36 +27,37 @@ impl NoMkIfTrue {
     }
 
     fn check(&self, node: &SyntaxElement) -> Option<Report> {
-        if let SyntaxElement::Node(node) = node {
-            if let Some(ident) = crate::rnix::ast::Ident::cast(node.clone()) {
-                if ident.to_string() != "true" {
-                    return None;
+        if let SyntaxElement::Node(node) = node
+            && let Some(ident) = crate::rnix::ast::Ident::cast(node.clone())
+            && ident.to_string() != "true"
+        {
+            return None;
+        }
+        if let SyntaxElement::Node(node) = node
+            && let Some(ident) = crate::rnix::ast::Ident::cast(node.clone())
+            && ident.to_string() == "true"
+            && let Some(parent) = node.parent()
+            && let Some(parent_apply) = Apply::cast(parent.clone())
+        {
+            if let Some(lambda) = parent_apply.lambda() {
+                let func_text = lambda.syntax().to_string();
+                if self.is_mkif_lambda(&func_text) {
+                    return Some(self.report().diagnostic(
+                        node.text_range(),
+                        "mkIf condition true found. Use the condition directly.",
+                    ));
                 }
-                if let Some(parent) = node.parent() {
-                    if let Some(parent_apply) = Apply::cast(parent.clone()) {
-                        if let Some(lambda) = parent_apply.lambda() {
-                            let func_text = lambda.syntax().to_string();
-                            if self.is_mkif_lambda(&func_text) {
-                                return Some(self.report().diagnostic(
-                                    node.text_range(),
-                                    "mkIf condition true found. Use the condition directly.",
-                                ));
-                            }
-                        }
-                        if let Some(arg) = parent_apply.argument() {
-                            if arg.syntax().text_range() == node.text_range() {
-                                if let Some(lambda2) = parent_apply.lambda() {
-                                    let func_text = lambda2.syntax().to_string();
-                                    if func_text.contains("mkIf") {
-                                        return Some(self.report().diagnostic(
-                                            node.text_range(),
-                                            "mkIf condition true found. Use the condition directly.",
-                                        ));
-                                    }
-                                }
-                            }
-                        }
-                    }
+            }
+            if let Some(arg) = parent_apply.argument()
+                && arg.syntax().text_range() == node.text_range()
+                && let Some(lambda2) = parent_apply.lambda()
+            {
+                let func_text = lambda2.syntax().to_string();
+                if func_text.contains("mkIf") {
+                    return Some(self.report().diagnostic(
+                        node.text_range(),
+                        "mkIf condition true found. Use the condition directly.",
+                    ));
                 }
             }
         }
@@ -66,7 +67,6 @@ impl NoMkIfTrue {
 
 #[cfg(test)]
 mod tests {
-    #![allow(dead_code)]
     use super::*;
     use nix_lint_core::LintRegistry;
 

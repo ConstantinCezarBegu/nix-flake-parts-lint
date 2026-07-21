@@ -23,23 +23,26 @@ impl Default for NoNixEnv {
 
 impl NoNixEnv {
     fn check(&self, node: &SyntaxElement) -> Option<Report> {
-        if let SyntaxElement::Node(node) = node {
-            if let Some(_s) = Str::cast(node.clone()) {
-                let text = node.to_string();
-                if text.contains("nix-env ") || text.contains("nix-env\t") {
-                    for flag in &[
-                        "nix-env -i",
-                        "nix-env -e",
-                        "nix-env -l",
-                        "nix-env -p",
-                        "nix-env -r",
-                        "nix-env -U",
-                        "nix-env -q",
-                        "nix-env -I",
-                    ] {
-                        if text.contains(flag) {
-                            return Some(self.report().diagnostic(node.text_range(), "Imperative nix-env usage found. Use declarative package management."));
-                        }
+        if let SyntaxElement::Node(node) = node
+            && let Some(_s) = Str::cast(node.clone())
+        {
+            let text = node.to_string();
+            if text.contains("nix-env ") || text.contains("nix-env\t") {
+                for flag in &[
+                    "nix-env -i",
+                    "nix-env -e",
+                    "nix-env -l",
+                    "nix-env -p",
+                    "nix-env -r",
+                    "nix-env -U",
+                    "nix-env -q",
+                    "nix-env -I",
+                ] {
+                    if text.contains(flag) {
+                        return Some(self.report().diagnostic(
+                            node.text_range(),
+                            "Imperative nix-env usage found. Use declarative package management.",
+                        ));
                     }
                 }
             }
@@ -50,7 +53,6 @@ impl NoNixEnv {
 
 #[cfg(test)]
 mod tests {
-    #![allow(dead_code)]
     use super::*;
     use nix_lint_core::LintRegistry;
 

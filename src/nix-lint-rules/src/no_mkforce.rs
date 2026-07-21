@@ -23,15 +23,14 @@ impl Default for NoMkForce {
 
 impl NoMkForce {
     fn check(&self, node: &SyntaxElement) -> Option<Report> {
-        if let SyntaxElement::Node(node) = node {
-            if let Some(ident) = Ident::cast(node.clone()) {
-                if ident.to_string() == "mkForce" {
-                    return Some(self.report().diagnostic(
-                        node.text_range(),
-                        "mkForce found. Use module priority or proper composition instead.",
-                    ));
-                }
-            }
+        if let SyntaxElement::Node(node) = node
+            && let Some(ident) = Ident::cast(node.clone())
+            && ident.to_string() == "mkForce"
+        {
+            return Some(self.report().diagnostic(
+                node.text_range(),
+                "mkForce found. Use module priority or proper composition instead.",
+            ));
         }
         None
     }
@@ -39,7 +38,6 @@ impl NoMkForce {
 
 #[cfg(test)]
 mod tests {
-    #![allow(dead_code)]
     use super::*;
     use nix_lint_core::LintRegistry;
 

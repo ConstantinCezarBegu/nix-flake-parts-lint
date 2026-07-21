@@ -24,17 +24,14 @@ impl Default for NoRec {
 
 impl NoRec {
     fn check(&self, node: &SyntaxElement) -> Option<Report> {
-        if let SyntaxElement::Node(syntax) = node {
-            if let Some(attrset) = AttrSet::cast(syntax.clone()) {
-                if attrset.rec_token().is_some() {
-                    return Some(
-                        self.report().diagnostic(
-                            node.text_range(),
-                            "rec {} found. Use let bindings instead.",
-                        ),
-                    );
-                }
-            }
+        if let SyntaxElement::Node(syntax) = node
+            && let Some(attrset) = AttrSet::cast(syntax.clone())
+            && attrset.rec_token().is_some()
+        {
+            return Some(
+                self.report()
+                    .diagnostic(node.text_range(), "rec {} found. Use let bindings instead."),
+            );
         }
         None
     }
@@ -42,7 +39,6 @@ impl NoRec {
 
 #[cfg(test)]
 mod tests {
-    #![allow(dead_code)]
     use super::*;
     use nix_lint_core::LintRegistry;
 

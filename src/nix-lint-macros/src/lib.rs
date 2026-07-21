@@ -79,9 +79,8 @@ pub fn lint(attr: TokenStream, item: TokenStream) -> TokenStream {
         #[derive(Clone, Copy)]
         #struct_item
 
-        ::lazy_static::lazy_static! {
-            pub static ref LINT: Box<dyn ::nix_lint_core::Lint> = Box::new(#struct_name::new());
-        }
+        pub static LINT: std::sync::LazyLock<Box<dyn ::nix_lint_core::Lint>> =
+            std::sync::LazyLock::new(|| Box::new(#struct_name::new()));
 
         #self_impl
         #meta_impl

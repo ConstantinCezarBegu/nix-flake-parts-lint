@@ -23,15 +23,14 @@ impl Default for NoMkDefault {
 
 impl NoMkDefault {
     fn check(&self, node: &SyntaxElement) -> Option<Report> {
-        if let SyntaxElement::Node(node) = node {
-            if let Some(ident) = Ident::cast(node.clone()) {
-                if ident.to_string() == "mkDefault" {
-                    return Some(self.report().diagnostic(
-                        node.text_range(),
-                        "mkDefault found. Set values explicitly in host config.",
-                    ));
-                }
-            }
+        if let SyntaxElement::Node(node) = node
+            && let Some(ident) = Ident::cast(node.clone())
+            && ident.to_string() == "mkDefault"
+        {
+            return Some(self.report().diagnostic(
+                node.text_range(),
+                "mkDefault found. Set values explicitly in host config.",
+            ));
         }
         None
     }
@@ -39,7 +38,6 @@ impl NoMkDefault {
 
 #[cfg(test)]
 mod tests {
-    #![allow(dead_code)]
     use super::*;
     use nix_lint_core::LintRegistry;
 

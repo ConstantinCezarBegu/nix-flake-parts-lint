@@ -26,32 +26,33 @@ impl Default for NoAnyType {
 
 impl NoAnyType {
     fn check(&self, node: &SyntaxElement) -> Option<Report> {
-        if let SyntaxElement::Node(node) = node {
-            if let Some(ident) = Ident::cast(node.clone()) {
-                if ident.to_string() == "anything" {
-                    if let Some(parent) = node.parent() {
-                        if let Some(attrpath) = Attrpath::cast(parent.clone()) {
-                            let attrs: Vec<_> = attrpath.attrs().collect();
-                            if let Some(last) = attrs.last() {
-                                if last.to_string() == "anything" {
-                                    if let Some(grandparent) = parent.parent() {
-                                        if let Some(select) = Select::cast(grandparent.clone()) {
-                                            for attr in &attrs {
-                                                if attr.to_string() == "types" {
-                                                    return Some(self.report().diagnostic(node.text_range(), "types.anything found. Use a specific type for proper validation."));
-                                                }
-                                            }
-                                            if let Some(expr) = select.expr() {
-                                                if expr.syntax().to_string() == "types" {
-                                                    return Some(self.report().diagnostic(node.text_range(), "types.anything found. Use a specific type for proper validation."));
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
+        if let SyntaxElement::Node(node) = node
+            && let Some(ident) = Ident::cast(node.clone())
+            && ident.to_string() == "anything"
+            && let Some(parent) = node.parent()
+            && let Some(attrpath) = Attrpath::cast(parent.clone())
+        {
+            let attrs: Vec<_> = attrpath.attrs().collect();
+            if let Some(last) = attrs.last()
+                && last.to_string() == "anything"
+                && let Some(grandparent) = parent.parent()
+                && let Some(select) = Select::cast(grandparent.clone())
+            {
+                for attr in &attrs {
+                    if attr.to_string() == "types" {
+                        return Some(self.report().diagnostic(
+                            node.text_range(),
+                            "types.anything found. Use a specific type for proper validation.",
+                        ));
                     }
+                }
+                if let Some(expr) = select.expr()
+                    && expr.syntax().to_string() == "types"
+                {
+                    return Some(self.report().diagnostic(
+                        node.text_range(),
+                        "types.anything found. Use a specific type for proper validation.",
+                    ));
                 }
             }
         }
@@ -61,7 +62,6 @@ impl NoAnyType {
 
 #[cfg(test)]
 mod tests {
-    #![allow(dead_code)]
     use super::*;
     use nix_lint_core::LintRegistry;
 

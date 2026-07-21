@@ -90,7 +90,6 @@ impl FileLevelRule for NoCrossModuleOptionReads {
 
 #[cfg(test)]
 mod tests {
-    #![allow(dead_code)]
     use super::*;
     use std::path::PathBuf;
 

@@ -6,5 +6,4 @@ edition = "2024"
 [dependencies]
 nix-lint-core = { path = "../nix-lint-core" }
 nix-lint-macros = { path = "../nix-lint-macros" }
-lazy_static = "1.5"
 regex = "1.11"

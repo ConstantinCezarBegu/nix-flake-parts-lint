@@ -6,9 +6,6 @@
 //! Re-exports `rnix` and `rowan` from `nix-lint-core` so rule files can use
 //! them via `crate::rnix::` and `crate::rowan::` without declaring direct deps.
 
-#![allow(clippy::collapsible_if)]
-#![allow(clippy::module_name_repetitions)]
-
 pub use nix_lint_core::rnix;
 pub use nix_lint_core::rowan;
 
