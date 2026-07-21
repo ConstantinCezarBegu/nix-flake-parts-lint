@@ -14,13 +14,13 @@
 
       perSystem = { config, self', pkgs, system, ... }: {
         checks = {
-          nix-lint = self'.packages.nix-lint;
-          default = self'.checks.nix-lint;
+          lint = self'.packages.nix-flake-parts-lint;
+          default = self'.checks.lint;
         };
 
         packages = {
-          nix-lint = pkgs.rustPlatform.buildRustPackage {
-            pname = "nix-lint";
+          nix-flake-parts-lint = pkgs.rustPlatform.buildRustPackage {
+            pname = "nix-flake-parts-lint";
             version = "0.1.0";
 
             src = ./.;
@@ -42,17 +42,18 @@
               homepage = "https://github.com/ConstantinCezarBegu/nix-flake-parts-lint";
               license = licenses.mit;
               platforms = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
+              mainProgram = "nix-flake-parts-lint";
             };
           };
-          default = self'.packages.nix-lint;
+          default = self'.packages.nix-flake-parts-lint;
         };
 
         apps = {
-          nix-lint = {
+          lint = {
             type = "app";
-            program = "${self'.packages.nix-lint}/bin/nix-lint";
+            program = "${self'.packages.nix-flake-parts-lint}/bin/nix-flake-parts-lint";
           };
-          default = self'.apps.nix-lint;
+          default = self'.apps.lint;
         };
 
         devShells.default = pkgs.mkShell {
