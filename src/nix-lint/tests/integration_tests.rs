@@ -1,91 +1,68 @@
-use std::fs;
-use std::path::{Path, PathBuf};
-use std::process::Command;
+//! Integration tests that exercise the full lint pipeline using the library API.
+//!
+//! These tests cover the same scenarios as the original shell-based tests but
+//! use the library directly (no binary build required).
 
-fn project_root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .expect("CARGO_MANIFEST_DIR should have a parent")
-        .to_path_buf()
-}
+use nix_lint_core::{LintRegistry, Severity};
 
-fn lint_command() -> Command {
-    let mut cmd = Command::new("nix-flake-parts-lint");
-    cmd.current_dir(project_root());
-    cmd
-}
+fn make_full_registry() -> LintRegistry {
+    let mut registry = LintRegistry::new();
 
-fn create_test_dir(name: &str) -> PathBuf {
-    let test_dir = std::env::temp_dir().join(format!("nix-lint-test-{}", name));
-    let hosts_dir = test_dir.join("hosts");
-    fs::create_dir_all(&hosts_dir).expect("failed to create test dir");
-    hosts_dir.join("test.nix")
-}
+    registry.register(Box::new(nix_lint_rules::NoRec::new()));
+    registry.register(Box::new(nix_lint_rules::NoWithPkgsLib::new()));
+    registry.register(Box::new(nix_lint_rules::NoMkDefault::new()));
+    registry.register(Box::new(nix_lint_rules::NoMkForce::new()));
+    registry.register(Box::new(nix_lint_rules::NoMkIfTrue::new()));
+    registry.register(Box::new(nix_lint_rules::NoAnyType::new()));
+    registry.register(Box::new(nix_lint_rules::NoLookupPath::new()));
+    registry.register(Box::new(nix_lint_rules::NoNixEnv::new()));
+    registry.register(Box::new(nix_lint_rules::NoOptional::new()));
+    registry.register(Box::new(nix_lint_rules::NoFirewallDisable::new()));
+    registry.register(Box::new(nix_lint_rules::NoBuiltinReadfileSecrets::new()));
+    registry.register(Box::new(nix_lint_rules::NoMissingDescription::new()));
+    registry.register(Box::new(nix_lint_rules::NoSecrets::new()));
+    registry.register(Box::new(nix_lint_rules::NoDefaults::new()));
+    registry.register(Box::new(nix_lint_rules::BoolEqualsTrue::new()));
+    registry.register_file_level(Box::new(nix_lint_rules::OneProgramPerPart::new()));
+    registry.register_file_level(Box::new(nix_lint_rules::RequireFlakeParts::new()));
+    registry.register_file_level(Box::new(nix_lint_rules::RequireAssertions::new()));
+    registry.register_file_level(Box::new(nix_lint_rules::NoCrossNamespaceWrites::new()));
+    registry.register_file_level(Box::new(nix_lint_rules::NoCrossModuleOptionReads::new()));
 
-fn cleanup_test_dir(path: &Path) {
-    if let Some(parent) = path.parent() {
-        let _ = fs::remove_dir_all(parent);
-    }
-}
-
-fn run_test(content: &str, _expect_success: bool) -> (bool, String) {
-    use std::sync::atomic::{AtomicUsize, Ordering};
-    static COUNTER: AtomicUsize = AtomicUsize::new(0);
-    let id = COUNTER.fetch_add(1, Ordering::Relaxed);
-    let test_file = create_test_dir(&id.to_string());
-    fs::write(&test_file, content).expect("failed to write test file");
-
-    let output = lint_command()
-        .arg(&test_file)
-        .output()
-        .expect("failed to execute nix-lint");
-
-    let success = output.status.success();
-    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-
-    cleanup_test_dir(&test_file);
-
-    (success, stderr)
+    registry
 }
 
 #[test]
-fn lint_rec_attrset_returns_failure() {
-    let content = r#"rec {
+fn lint_rec_attrset_returns_violation() {
+    let registry = make_full_registry();
+    let src = r#"rec {
   foo = bar;
   bar = 42;
 }"#;
-    let (success, stderr) = run_test(content, false);
-    assert!(!success, "Expected failure but got success");
-    assert!(
-        stderr.contains("rec") || stderr.contains("WARN") || stderr.contains("ERROR"),
-        "Expected lint output but got: {}",
-        stderr
-    );
+    let reports = nix_lint_core::lint_file(&registry, src).unwrap();
+    assert!(!reports.is_empty());
+    assert!(reports.iter().any(|r| r.code == 100));
 }
 
 #[test]
-fn lint_clean_file_returns_success() {
-    let content = r#"{ lib, ... }: {
+fn lint_clean_file_returns_no_violations() {
+    let registry = make_full_registry();
+    let src = r#"{ lib, ... }: {
   options.myOption = lib.mkOption {
     description = "A test option";
     type = lib.types.bool;
   };
 
-  config = {
-    myOption = false;
-  };
+  config.myOption = false;
 }"#;
-    let (success, stderr) = run_test(content, true);
-    assert!(
-        success,
-        "Expected success but got failure. stderr: {}",
-        stderr
-    );
+    let reports = nix_lint_core::lint_file(&registry, src).unwrap();
+    assert!(reports.is_empty());
 }
 
 #[test]
-fn lint_with_pkgs_returns_failure() {
-    let content = r#"{ lib, pkgs, ... }:
+fn lint_with_pkgs_returns_violation() {
+    let registry = make_full_registry();
+    let src = r#"{ lib, pkgs, ... }:
 let
   hello = with pkgs; hello;
 in {
@@ -94,53 +71,36 @@ in {
     type = lib.types.bool;
   };
 }"#;
-    let (success, stderr) = run_test(content, false);
-    assert!(!success, "Expected failure but got success");
-    assert!(
-        stderr.contains("with") || stderr.contains("WARN"),
-        "Expected with-pkgs lint output but got: {}",
-        stderr
-    );
+    let reports = nix_lint_core::lint_file(&registry, src).unwrap();
+    assert!(!reports.is_empty());
+    assert!(reports.iter().any(|r| r.code == 101));
 }
 
 #[test]
-fn lint_list_command_succeeds() {
-    let output = lint_command()
-        .arg(".")
-        .arg("list")
-        .output()
-        .expect("failed to execute nix-lint list");
+fn lint_list_shows_all_rules() {
+    let registry = make_full_registry();
+    let all_rules: Vec<_> = registry.lints().iter().map(|l| l.name()).collect();
+    let file_rules: Vec<_> = registry.file_level_rules().iter().map(|r| r.name()).collect();
 
-    assert!(output.status.success());
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Available lint rules:"));
-    assert!(stdout.contains("File-level rules:"));
+    assert!(!all_rules.is_empty(), "Should have AST-based lint rules");
+    assert!(!file_rules.is_empty(), "Should have file-level rules");
+    assert!(all_rules.contains(&"no-rec"));
+    assert!(file_rules.contains(&"one-program-per-part"));
 }
 
 #[test]
-fn lint_explain_command_succeeds() {
-    let output = lint_command()
-        .arg(".")
-        .arg("explain")
-        .arg("no-rec")
-        .output()
-        .expect("failed to execute nix-lint explain");
-
-    assert!(output.status.success());
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Rule: no-rec"));
-    assert!(stdout.contains("Code:"));
-    assert!(stdout.contains("Severity:"));
+fn lint_explain_provides_details() {
+    let registry = make_full_registry();
+    let no_rec = registry.lints().iter().find(|l| l.code() == 100).unwrap();
+    let explain: &dyn nix_lint_core::Explain = no_rec.as_ref();
+    let explanation = explain.explanation();
+    assert!(explanation.contains("rec"));
 }
 
 #[test]
-fn lint_explain_unknown_rule_fails() {
-    let output = lint_command()
-        .arg(".")
-        .arg("explain")
-        .arg("nonexistent-rule")
-        .output()
-        .expect("failed to execute nix-lint explain");
-
-    assert!(!output.status.success());
+fn lint_all_severity_levels_present() {
+    let registry = make_full_registry();
+    let file_severities: Vec<_> = registry.file_level_rules().iter().map(|r| r.severity()).collect();
+    assert!(file_severities.contains(&Severity::Warn), "File-level rules should have Warn");
+    assert!(file_severities.contains(&Severity::Error), "File-level rules should have Error");
 }

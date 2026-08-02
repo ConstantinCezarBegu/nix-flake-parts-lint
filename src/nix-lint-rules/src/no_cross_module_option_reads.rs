@@ -1,7 +1,64 @@
+use std::collections::HashSet;
 use std::path::Path;
 
 use nix_lint_core::{FileLevelReport, FileLevelRule, Severity};
 use regex::Regex;
+
+static BUILTIN_OPTIONS: &[&str] = &[
+    // flake-parts built-in outputs
+    "flake",
+    "perSystem",
+    // nixpkgs system options
+    "system",
+    // nixpkgs core options
+    "nix",
+    "nixpkgs",
+    "environment",
+    // nixpkgs user/account options
+    "users",
+    "groups",
+    // nixpkgs boot options
+    "boot",
+    // nixpkgs networking options
+    "networking",
+    // nixpkgs security options
+    "security",
+    // nixpkgs hardware options
+    "hardware",
+    // nixpkgs localization options
+    "i18n",
+    "locale",
+    // nixpkgs time options
+    "time",
+    // nixpkgs service options
+    "services",
+    // nixpkgs virtualization options
+    "virtualisation",
+    "containers",
+    // nixpkgs program options
+    "programs",
+    // nixpkgs documentation options
+    "documentation",
+    // nixpkgs font options
+    "fonts",
+    // nixpkgs XDG options
+    "xdg",
+    // nixpkgs power management options
+    "powerManagement",
+    // nixpkgs sound options
+    "sound",
+    // nix-darwin options
+    "darwin",
+    // home-manager options
+    "home-manager",
+    // nixos-generators options
+    "nixosConfigurations",
+    // nixosModules / darwinModules
+    "nixosModules",
+    "darwinModules",
+    "homeManagerModules",
+    "homeModules",
+];
 
 pub struct NoCrossModuleOptionReads;
 
@@ -41,13 +98,14 @@ impl FileLevelRule for NoCrossModuleOptionReads {
         if declared.is_empty() {
             return None;
         }
-        let declared_set: std::collections::HashSet<&str> = declared.iter().copied().collect();
+        let declared_set: HashSet<&str> = declared.iter().copied().collect();
+        let builtin_set: HashSet<&str> = BUILTIN_OPTIONS.iter().copied().collect();
 
         // Match top-level config reads: <non-identifier/dot>config.<namespace>.
         let config_read_re = Regex::new(r"([^a-zA-Z0-9_.])config\.([a-zA-Z_]\w*)\.").unwrap();
         for cap in config_read_re.captures_iter(content) {
             let ns = cap.get(2)?.as_str();
-            if !declared_set.contains(ns) {
+            if !declared_set.contains(ns) && !builtin_set.contains(ns) {
                 return Some(FileLevelReport {
                     file: path.to_string_lossy().into_owned(),
                     message: format!(
@@ -66,7 +124,7 @@ impl FileLevelRule for NoCrossModuleOptionReads {
             Regex::new(r"assert\s+.*?([^a-zA-Z0-9_.])config\.([a-zA-Z_]\w*)\.").unwrap();
         for cap in assert_config_re.captures_iter(content) {
             let ns = cap.get(2)?.as_str();
-            if !declared_set.contains(ns) {
+            if !declared_set.contains(ns) && !builtin_set.contains(ns) {
                 return Some(FileLevelReport {
                     file: path.to_string_lossy().into_owned(),
                     message: format!(
@@ -166,6 +224,124 @@ mod tests {
         let content = r#"{ config, lib, ... }: {
           options.myService.foo.bar = lib.mkOption { type = lib.types.bool; };
           config.myService.foo.bar = config.myService.foo.baz;
+        }"#;
+        let report = rule.validate_file(&make_path("test.nix"), content);
+        assert!(report.is_none());
+    }
+
+    #[test]
+    fn test_builtin_nix_read_no_report() {
+        let rule = NoCrossModuleOptionReads::new();
+        let content = r#"{ config, lib, ... }: {
+          options.myService.foo = lib.mkOption { type = lib.types.bool; };
+          config.myService.nixSetting = config.nix.settings.auto-optimise-store;
+        }"#;
+        let report = rule.validate_file(&make_path("test.nix"), content);
+        assert!(report.is_none());
+    }
+
+    #[test]
+    fn test_builtin_services_read_no_report() {
+        let rule = NoCrossModuleOptionReads::new();
+        let content = r#"{ config, lib, ... }: {
+          options.myService.package = lib.mkOption { type = lib.types.package; };
+          config.myService.existingPackage = config.services.nginx.package;
+        }"#;
+        let report = rule.validate_file(&make_path("test.nix"), content);
+        assert!(report.is_none());
+    }
+
+    #[test]
+    fn test_builtin_flake_read_no_report() {
+        let rule = NoCrossModuleOptionReads::new();
+        let content = r#"{ config, lib, ... }: {
+          options.myService.desc = lib.mkOption { type = lib.types.str; };
+          config.myService.desc = config.flake.description;
+        }"#;
+        let report = rule.validate_file(&make_path("test.nix"), content);
+        assert!(report.is_none());
+    }
+
+    #[test]
+    fn test_builtin_darwin_read_no_report() {
+        let rule = NoCrossModuleOptionReads::new();
+        let content = r#"{ config, lib, ... }: {
+          options.myService.autologin = lib.mkOption { type = lib.types.bool; };
+          config.myService.autologin = config.darwin.enableAutologin;
+        }"#;
+        let report = rule.validate_file(&make_path("test.nix"), content);
+        assert!(report.is_none());
+    }
+
+    #[test]
+    fn test_builtin_programs_read_no_report() {
+        let rule = NoCrossModuleOptionReads::new();
+        let content = r#"{ config, lib, ... }: {
+          options.myService.gitEnable = lib.mkOption { type = lib.types.bool; };
+          config.myService.gitEnable = config.programs.git.enable;
+        }"#;
+        let report = rule.validate_file(&make_path("test.nix"), content);
+        assert!(report.is_none());
+    }
+
+    #[test]
+    fn test_builtin_user_read_no_report() {
+        let rule = NoCrossModuleOptionReads::new();
+        let content = r#"{ config, lib, ... }: {
+          options.myService.users = lib.mkOption { type = lib.types.listOf lib.types.str; };
+          config.myService.users = config.users.users."myuser".name;
+        }"#;
+        let report = rule.validate_file(&make_path("test.nix"), content);
+        assert!(report.is_none());
+    }
+
+    #[test]
+    fn test_builtin_assertion_no_report() {
+        let rule = NoCrossModuleOptionReads::new();
+        let content = r#"{ config, lib, ... }: {
+          options.myService.foo = lib.mkOption { type = lib.types.bool; };
+          assert config.nix.settings.auto-optimise-store;
+          {
+            config.myService.bar = true;
+          }
+        }"#;
+        let report = rule.validate_file(&make_path("test.nix"), content);
+        assert!(report.is_none());
+    }
+
+    #[test]
+    fn test_non_builtin_undeclared_read_report() {
+        let rule = NoCrossModuleOptionReads::new();
+        let content = r#"{ config, lib, ... }: {
+          options.myService.foo = lib.mkOption { type = lib.types.bool; };
+          config.myService.bar = config.undeclaredThing.baz;
+        }"#;
+        let report = rule.validate_file(&make_path("test.nix"), content);
+        assert!(report.is_some());
+        let report = report.unwrap();
+        assert!(report.message.contains("undeclaredThing"));
+    }
+
+    #[test]
+    fn test_multiple_builtin_reads_no_report() {
+        let rule = NoCrossModuleOptionReads::new();
+        let content = r#"{ config, lib, ... }: {
+          options.myService.foo = lib.mkOption { type = lib.types.bool; };
+          config.myService.nix = config.nix.settings.auto-optimise-store;
+          config.myService.nginx = config.services.nginx.enable;
+          config.myService.desc = config.flake.description;
+          config.myService.darwin = config.darwin.enableAutologin;
+        }"#;
+        let report = rule.validate_file(&make_path("test.nix"), content);
+        assert!(report.is_none());
+    }
+
+    #[test]
+    fn test_builtin_and_declared_mixed_read_no_report() {
+        let rule = NoCrossModuleOptionReads::new();
+        let content = r#"{ config, lib, ... }: {
+          options.myService.foo = lib.mkOption { type = lib.types.bool; };
+          config.myService.bar = config.myService.foo && config.nix.settings.auto-optimise-store;
         }"#;
         let report = rule.validate_file(&make_path("test.nix"), content);
         assert!(report.is_none());

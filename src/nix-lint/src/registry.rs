@@ -28,6 +28,7 @@ pub fn build_registry() -> LintRegistry {
     registry.register_file_level(Box::new(nix_lint_rules::RequireAssertions::new()));
     registry.register_file_level(Box::new(nix_lint_rules::NoCrossNamespaceWrites::new()));
     registry.register_file_level(Box::new(nix_lint_rules::NoCrossModuleOptionReads::new()));
+    registry.register_file_level(Box::new(nix_lint_rules::ModuleImports::new()));
 
     registry
 }
