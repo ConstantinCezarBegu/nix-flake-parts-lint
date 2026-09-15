@@ -30,6 +30,10 @@ pub mod one_program_per_part;
 pub mod require_assertions;
 pub mod module_imports;
 pub mod require_flake_parts;
+pub mod flakes_duplicate_options_across_siblings;
+pub mod flakes_options_in_default;
+
+pub mod secrets_in_hosts_only;
 
 pub use bool_equals_true::BoolEqualsTrue;
 pub use no_any_type::NoAnyType;
@@ -52,3 +56,6 @@ pub use module_imports::ModuleImports;
 pub use one_program_per_part::OneProgramPerPart;
 pub use require_assertions::RequireAssertions;
 pub use require_flake_parts::RequireFlakeParts;
+pub use secrets_in_hosts_only::SecretsInHostsOnly;
+pub use flakes_duplicate_options_across_siblings::FlakesDuplicateOptionsAcrossSiblings;
+pub use flakes_options_in_default::FlakesOptionsInDefaultOrHostsOption;

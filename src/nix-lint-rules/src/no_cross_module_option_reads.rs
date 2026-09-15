@@ -101,10 +101,19 @@ impl FileLevelRule for NoCrossModuleOptionReads {
         let declared_set: HashSet<&str> = declared.iter().copied().collect();
         let builtin_set: HashSet<&str> = BUILTIN_OPTIONS.iter().copied().collect();
 
-        // Match top-level config reads: <non-identifier/dot>config.<namespace>.
-        let config_read_re = Regex::new(r"([^a-zA-Z0-9_.])config\.([a-zA-Z_]\w*)\.").unwrap();
+        // Match all config.X entry points where X is a namespace.
+        // Uses \b to match start-of-line and word boundaries.
+        // Checks that the char after the namespace is not an identifier continuation char
+        // (or we're at end of string) to avoid matching partial identifiers.
+        let config_read_re = Regex::new(r"\bconfig\.([a-zA-Z_]\w*)").unwrap();
         for cap in config_read_re.captures_iter(content) {
-            let ns = cap.get(2)?.as_str();
+            let ns = cap.get(1)?.as_str();
+            let match_end = cap.get(1).unwrap().end();
+            let next_char = content[match_end..].chars().next();
+            // Skip if the namespace continues (next char is a valid identifier char)
+            if next_char.is_some_and(|c| c.is_ascii_alphanumeric() || c == '_') {
+                continue;
+            }
             if !declared_set.contains(ns) && !builtin_set.contains(ns) {
                 return Some(FileLevelReport {
                     file: path.to_string_lossy().into_owned(),
@@ -119,11 +128,16 @@ impl FileLevelRule for NoCrossModuleOptionReads {
             }
         }
 
-        // Check assertions: assert ... <non-dot>config.<namespace>.
-        let assert_config_re =
-            Regex::new(r"assert\s+.*?([^a-zA-Z0-9_.])config\.([a-zA-Z_]\w*)\.").unwrap();
+        // Check assertions: assert followed by config.X entry point.
+        let assert_config_re = Regex::new(r"assert\s+.*?\bconfig\.([a-zA-Z_]\w*)").unwrap();
         for cap in assert_config_re.captures_iter(content) {
-            let ns = cap.get(2)?.as_str();
+            let ns = cap.get(1)?.as_str();
+            let match_end = cap.get(1).unwrap().end();
+            let next_char = content[match_end..].chars().next();
+            // Skip if the namespace continues (next char is a valid identifier char)
+            if next_char.is_some_and(|c| c.is_ascii_alphanumeric() || c == '_') {
+                continue;
+            }
             if !declared_set.contains(ns) && !builtin_set.contains(ns) {
                 return Some(FileLevelReport {
                     file: path.to_string_lossy().into_owned(),
@@ -345,5 +359,112 @@ mod tests {
         }"#;
         let report = rule.validate_file(&make_path("test.nix"), content);
         assert!(report.is_none());
+    }
+
+    #[test]
+    fn test_config_read_at_start_of_line() {
+        let rule = NoCrossModuleOptionReads::new();
+        let content = r#"{ config, lib, ... }: {
+          options.myService.foo = lib.mkOption { type = lib.types.bool; };
+config.services.nginx.enable = true;
+        }"#;
+        let report = rule.validate_file(&make_path("test.nix"), content);
+        assert!(report.is_none());
+    }
+
+    #[test]
+    fn test_config_read_at_start_of_file() {
+        let rule = NoCrossModuleOptionReads::new();
+        let content = r#"{ config, lib, ... }: {
+  options.myService.foo = lib.mkOption { type = lib.types.bool; };
+config.myService.bar = config.services.nginx.enable;
+}"#;
+        let report = rule.validate_file(&make_path("test.nix"), content);
+        assert!(report.is_none());
+    }
+
+    #[test]
+    fn test_config_standalone_expression_no_trailing_dot() {
+        let rule = NoCrossModuleOptionReads::new();
+        let content = r#"{ config, lib, ... }: {
+  options.myService.foo = lib.mkOption { type = lib.types.bool; };
+  let x = config.services;
+  in config.myService.bar = x;
+}"#;
+        let report = rule.validate_file(&make_path("test.nix"), content);
+        assert!(report.is_none());
+    }
+
+    #[test]
+    fn test_config_assignment_target_no_trailing_dot() {
+        let rule = NoCrossModuleOptionReads::new();
+        let content = r#"{ config, lib, ... }: {
+  options.myService.foo = lib.mkOption { type = lib.types.bool; };
+  config.services = { nginx.enable = true; };
+}"#;
+        let report = rule.validate_file(&make_path("test.nix"), content);
+        assert!(report.is_none());
+    }
+
+    #[test]
+    fn test_config_in_array_no_trailing_dot() {
+        let rule = NoCrossModuleOptionReads::new();
+        let content = r#"{ config, lib, ... }: {
+  options.myService.foo = lib.mkOption { type = lib.types.bool; };
+  config.myService.packages = [ config.services ];
+}"#;
+        let report = rule.validate_file(&make_path("test.nix"), content);
+        assert!(report.is_none());
+    }
+
+    #[test]
+    fn test_config_undeclared_standalone_expression() {
+        let rule = NoCrossModuleOptionReads::new();
+        let content = r#"{ config, lib, ... }: {
+  options.myService.foo = lib.mkOption { type = lib.types.bool; };
+  let x = config.otherService;
+  in config.myService.bar = x;
+}"#;
+        let report = rule.validate_file(&make_path("test.nix"), content);
+        assert!(report.is_some());
+        assert!(report.unwrap().message.contains("otherService"));
+    }
+
+    #[test]
+    fn test_config_in_comparison_no_trailing_dot() {
+        let rule = NoCrossModuleOptionReads::new();
+        let content = r#"{ config, lib, ... }: {
+  options.myService.foo = lib.mkOption { type = lib.types.bool; };
+  config.myService.bar = config.services == { };
+}"#;
+        let report = rule.validate_file(&make_path("test.nix"), content);
+        assert!(report.is_none());
+    }
+
+    #[test]
+    fn test_myconfig_not_matched() {
+        let rule = NoCrossModuleOptionReads::new();
+        let content = r#"{ config, lib, ... }: {
+  options.myService.foo = lib.mkOption { type = lib.types.bool; };
+  config.myService.bar = myConfig.services.enable;
+}"#;
+        let report = rule.validate_file(&make_path("test.nix"), content);
+        assert!(report.is_none());
+    }
+
+    #[test]
+    fn test_config_in_assert_multiline() {
+        let rule = NoCrossModuleOptionReads::new();
+        let content = r#"{ config, lib, ... }: {
+  options.myService.foo = lib.mkOption { type = lib.types.bool; };
+  assert
+    config.otherService.enabled;
+  {
+    config.myService.bar = true;
+  }
+}"#;
+        let report = rule.validate_file(&make_path("test.nix"), content);
+        assert!(report.is_some());
+        assert!(report.unwrap().message.contains("otherService"));
     }
 }

@@ -101,12 +101,19 @@ impl FileLevelRule for NoCrossNamespaceWrites {
         let declared_set: HashSet<&str> = declared.iter().copied().collect();
         let builtin_set: HashSet<&str> = BUILTIN_OPTIONS.iter().copied().collect();
 
-        // Match config.<namespace> where it's NOT preceded by identifier or dot chars (nested paths)
-        // Uses capture group 1 for context char and group 2 for namespace
-        let config_write_re =
-            Regex::new(r"([^a-zA-Z0-9_.])config\.([a-zA-Z_]\w*)(?:\s*=|\.)").unwrap();
+        // Match all config.X writes where X is a namespace.
+        // Uses \b to match start-of-line and word boundaries.
+        // Checks that the char after the namespace is not an identifier continuation char
+        // (or we're at end of string) to avoid matching partial identifiers.
+        let config_write_re = Regex::new(r"\bconfig\.([a-zA-Z_]\w*)").unwrap();
         for cap in config_write_re.captures_iter(content) {
-            let ns = cap.get(2)?.as_str();
+            let ns = cap.get(1)?.as_str();
+            let match_end = cap.get(1).unwrap().end();
+            let next_char = content[match_end..].chars().next();
+            // Skip if the namespace continues (next char is a valid identifier char)
+            if next_char.is_some_and(|c| c.is_ascii_alphanumeric() || c == '_') {
+                continue;
+            }
             if !declared_set.contains(ns) && !builtin_set.contains(ns) {
                 return Some(FileLevelReport {
                     file: path.to_string_lossy().into_owned(),
@@ -321,5 +328,49 @@ mod tests {
         assert!(report.is_some());
         let report = report.unwrap();
         assert!(report.message.contains("undeclaredThing"));
+    }
+
+    #[test]
+    fn test_config_write_at_start_of_line() {
+        let rule = NoCrossNamespaceWrites::new();
+        let content = r#"{ config, lib, ... }: {
+          options.myService.foo = lib.mkOption { type = lib.types.bool; };
+config.services.nginx.enable = true;
+        }"#;
+        let report = rule.validate_file(&make_path("test.nix"), content);
+        assert!(report.is_none());
+    }
+
+    #[test]
+    fn test_config_assignment_no_trailing_dot() {
+        let rule = NoCrossNamespaceWrites::new();
+        let content = r#"{ config, lib, ... }: {
+          options.myService.foo = lib.mkOption { type = lib.types.bool; };
+          config.services = { nginx.enable = true; };
+        }"#;
+        let report = rule.validate_file(&make_path("test.nix"), content);
+        assert!(report.is_none());
+    }
+
+    #[test]
+    fn test_config_comparison_no_trailing_dot() {
+        let rule = NoCrossNamespaceWrites::new();
+        let content = r#"{ config, lib, ... }: {
+          options.myService.foo = lib.mkOption { type = lib.types.bool; };
+          config.myService.bar = config.services == { };
+        }"#;
+        let report = rule.validate_file(&make_path("test.nix"), content);
+        assert!(report.is_none());
+    }
+
+    #[test]
+    fn test_myconfig_write_not_matched() {
+        let rule = NoCrossNamespaceWrites::new();
+        let content = r#"{ config, lib, ... }: {
+          options.myService.foo = lib.mkOption { type = lib.types.bool; };
+          myConfig.services.nginx.enable = true;
+        }"#;
+        let report = rule.validate_file(&make_path("test.nix"), content);
+        assert!(report.is_none());
     }
 }
