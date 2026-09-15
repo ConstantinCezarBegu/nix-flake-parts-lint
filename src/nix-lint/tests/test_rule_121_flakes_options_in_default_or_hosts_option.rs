@@ -59,7 +59,7 @@ fn git_nix_invalid() {
   options.git.autocrlf = lib.mkOption { type = lib.types.str; };
 }"#;
     let reports = registry.validate_file(
-        &std::path::PathBuf::from("development/git/git.nix"),
+        &std::path::PathBuf::from("hosts/git.nix"),
         src,
     );
     assert!(!reports.is_empty());

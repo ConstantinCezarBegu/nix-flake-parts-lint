@@ -16,7 +16,7 @@ fn options_no_assertions_triggers() {
     let src = r#"{ lib, ... }:
 {
   options.myService.foo = lib.mkOption {
-    type = lib.types.bool;
+    type = lib.types.submodule;
     description = "A test option";
   };
   config.myService.bar = true;

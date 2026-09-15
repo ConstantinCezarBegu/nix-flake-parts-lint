@@ -32,14 +32,19 @@ impl FileLevelRule for FlakesOptionsInDefaultOrHostsOption {
     }
 
     fn validate_file(&self, path: &Path, content: &str) -> Option<FileLevelReport> {
+        let path_str = path.to_string_lossy();
+
+        // Only apply to files inside hosts/ directories
+        if !path_str.contains("/hosts/") && !path_str.starts_with("hosts/") {
+            return None;
+        }
+
         // Check if this file defines any top-level options (options.X = ... or options.X.Y = ...).
         let options_re = Regex::new(r"\boptions\.([a-zA-Z_][a-zA-Z0-9_\-]*(?:\.[a-zA-Z_][a-zA-Z0-9_\-]*)*)\s*=").unwrap();
         let has_options = options_re.is_match(content);
         if !has_options {
             return None;
         }
-
-        let path_str = path.to_string_lossy();
 
         // Check if it's a default.nix file (valid - shared config for directory)
         if path.file_name().is_some_and(|n| n == "default.nix") {
@@ -151,8 +156,8 @@ mod tests {
         let content = r#"{ lib }: {
           options.git.autocrlf = lib.mkOption { type = lib.types.str; };
         }"#;
-        let report = rule.validate_file(&make_path("git.nix"), content);
-        assert!(report.is_some(), "git.nix should be invalid");
+        let report = rule.validate_file(&make_path("hosts/git.nix"), content);
+        assert!(report.is_some(), "hosts/git.nix should be invalid");
         assert!(
             report.unwrap().message.contains("git-option.nix"),
             "Should suggest git-option.nix"
@@ -202,7 +207,7 @@ mod tests {
           options.wayland.sway.svalboard.workspace-move-focus = lib.mkOption { type = lib.types.bool; };
         }"#;
         let report = rule.validate_file(
-            &make_path("wayland/sway/controls/svalboard/workspace-move-focus.nix"),
+            &make_path("hosts/wayland/sway/controls/svalboard/workspace-move-focus.nix"),
             content,
         );
         assert!(report.is_some(), "workspace-move-focus.nix should be invalid");
@@ -218,7 +223,7 @@ mod tests {
         let content = r#"{ lib }: {
           options.boot.kernelParams = [ "ttm.pages_limit=32505856" ];
         }"#;
-        let report = rule.validate_file(&make_path("boot.nix"), content);
-        assert!(report.is_some(), "boot.nix should be invalid");
+        let report = rule.validate_file(&make_path("hosts/boot.nix"), content);
+        assert!(report.is_some(), "hosts/boot.nix should be invalid");
     }
 }
