@@ -29,6 +29,7 @@ fn make_full_registry() -> LintRegistry {
     registry.register_file_level(Box::new(nix_lint_rules::NoCrossNamespaceWrites::new()));
     registry.register_file_level(Box::new(nix_lint_rules::NoCrossModuleOptionReads::new()));
     registry.register_file_level(Box::new(nix_lint_rules::FlakesOptionsInDefaultOrHostsOption::new()));
+    registry.register_file_level(Box::new(nix_lint_rules::OptionNixRestrictedToHosts::new()));
 
     registry
 }
