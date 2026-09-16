@@ -35,6 +35,7 @@ pub mod flakes_options_in_default;
 
 pub mod secrets_in_hosts_only;
 
+pub mod no_option_in_hosts;
 pub mod option_nix_restricted_to_hosts;
 pub mod unused_options;
 
@@ -62,5 +63,6 @@ pub use require_flake_parts::RequireFlakeParts;
 pub use secrets_in_hosts_only::SecretsInHostsOnly;
 pub use flakes_duplicate_options_across_siblings::FlakesDuplicateOptionsAcrossSiblings;
 pub use flakes_options_in_default::FlakesOptionsInDefaultOrHostsOption;
+pub use no_option_in_hosts::NoOptionInHosts;
 pub use option_nix_restricted_to_hosts::OptionNixRestrictedToHosts;
 pub use unused_options::UnusedOptions;
