@@ -25,7 +25,7 @@ impl Default for NoAnyType {
 }
 
 impl NoAnyType {
-    fn check(&self, node: &SyntaxElement) -> Option<Report> {
+    fn check(&self, node: &SyntaxElement, _file_path: &std::path::Path, _src: &str) -> Option<Report> {
         if let SyntaxElement::Node(node) = node
             && let Some(ident) = Ident::cast(node.clone())
             && ident.to_string() == "anything"
@@ -74,7 +74,7 @@ mod tests {
     #[test]
     fn test_types_anything_triggers() {
         let src = r#"lib.types.anything"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), src).unwrap();
+        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
         assert!(!reports.is_empty());
         assert_eq!(reports[0].code, 105);
     }
@@ -82,7 +82,7 @@ mod tests {
     #[test]
     fn test_types_anything_no_lib_prefix_triggers() {
         let src = r#"types.anything"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), src).unwrap();
+        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
         assert!(!reports.is_empty());
         assert_eq!(reports[0].code, 105);
     }
@@ -90,28 +90,28 @@ mod tests {
     #[test]
     fn test_other_type_no_trigger() {
         let src = r#"lib.types.string"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), src).unwrap();
+        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
         assert!(reports.is_empty());
     }
 
     #[test]
     fn test_types_attrs_no_trigger() {
         let src = r#"lib.types.attrs"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), src).unwrap();
+        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
         assert!(reports.is_empty());
     }
 
     #[test]
     fn test_standalone_anything_no_trigger() {
         let src = r#"anything"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), src).unwrap();
+        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
         assert!(reports.is_empty());
     }
 
     #[test]
     fn test_types_anything_in_either_triggers() {
         let src = r#"lib.types.either lib.types.anything (lib.types.str)"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), src).unwrap();
+        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
         assert!(!reports.is_empty());
         assert_eq!(reports[0].code, 105);
     }

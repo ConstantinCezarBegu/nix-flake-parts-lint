@@ -44,7 +44,8 @@ impl FileLevelRule for SecretsInHostsOnly {
         for (path_str, content) in files {
             let path = Path::new(path_str);
             let in_hosts = path_str.starts_with("hosts/") || path_str.contains("/hosts/");
-            if !in_hosts {
+            let is_flake = path.file_name().map_or(false, |n| n == "flake.nix");
+            if !in_hosts && !is_flake {
                 // Check for secrets-related identifiers
                 let secrets_patterns = [
                     r"\bsecretspec\b",
@@ -152,6 +153,19 @@ mod tests {
         let reports = rule.validate_project(&files);
         assert!(!reports.is_empty());
         assert!(reports.iter().any(|r| r.code == 123));
+    }
+
+    #[test]
+    fn test_flake_nix_no_report() {
+        let rule = SecretsInHostsOnly::new();
+        let files = make_file(
+            "flake.nix",
+            r#"{ bwSession }:
+    { specialArgs = { inherit bwSession; }; }
+"#,
+        );
+        let reports = rule.validate_project(&files);
+        assert!(reports.is_empty());
     }
 
     #[test]

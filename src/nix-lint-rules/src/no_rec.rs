@@ -23,7 +23,7 @@ impl Default for NoRec {
 }
 
 impl NoRec {
-    fn check(&self, node: &SyntaxElement) -> Option<Report> {
+    fn check(&self, node: &SyntaxElement, _file_path: &std::path::Path, _src: &str) -> Option<Report> {
         if let SyntaxElement::Node(syntax) = node
             && let Some(attrset) = AttrSet::cast(syntax.clone())
             && attrset.rec_token().is_some()
@@ -54,7 +54,7 @@ mod tests {
           foo = bar;
           bar = 42;
         }"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), src).unwrap();
+        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
         assert!(!reports.is_empty());
         assert_eq!(reports[0].code, 100);
     }
@@ -65,7 +65,7 @@ mod tests {
           foo = bar;
           bar = 42;
         }"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), src).unwrap();
+        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
         assert!(reports.is_empty());
     }
 
@@ -76,7 +76,7 @@ mod tests {
             f = x: x;
           };
         }"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), src).unwrap();
+        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
         assert!(!reports.is_empty());
         assert_eq!(reports[0].code, 100);
     }
@@ -88,7 +88,7 @@ mod tests {
             bar = 42;
           };
         }"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), src).unwrap();
+        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
         assert!(!reports.is_empty());
         assert_eq!(reports[0].code, 100);
     }
@@ -98,7 +98,7 @@ mod tests {
         let src = r#"{
           foo = let x = 42; in x;
         }"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), src).unwrap();
+        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
         assert!(reports.is_empty());
     }
 }

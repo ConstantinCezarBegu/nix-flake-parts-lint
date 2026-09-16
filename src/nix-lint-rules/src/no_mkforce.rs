@@ -22,7 +22,7 @@ impl Default for NoMkForce {
 }
 
 impl NoMkForce {
-    fn check(&self, node: &SyntaxElement) -> Option<Report> {
+    fn check(&self, node: &SyntaxElement, _file_path: &std::path::Path, _src: &str) -> Option<Report> {
         if let SyntaxElement::Node(node) = node
             && let Some(ident) = Ident::cast(node.clone())
             && ident.to_string() == "mkForce"
@@ -50,7 +50,7 @@ mod tests {
     #[test]
     fn test_mkforce_triggers() {
         let src = r#"mkForce 42"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), src).unwrap();
+        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
         assert!(!reports.is_empty());
         assert_eq!(reports[0].code, 103);
     }
@@ -58,7 +58,7 @@ mod tests {
     #[test]
     fn test_lib_mkforce_triggers() {
         let src = r#"lib.mkForce "value""#;
-        let reports = nix_lint_core::lint_file(&make_registry(), src).unwrap();
+        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
         assert!(!reports.is_empty());
         assert_eq!(reports[0].code, 103);
     }
@@ -66,7 +66,7 @@ mod tests {
     #[test]
     fn test_other_ident_no_trigger() {
         let src = r#"myForce 42"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), src).unwrap();
+        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
         assert!(reports.is_empty());
     }
 }

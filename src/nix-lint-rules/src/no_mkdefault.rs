@@ -22,7 +22,7 @@ impl Default for NoMkDefault {
 }
 
 impl NoMkDefault {
-    fn check(&self, node: &SyntaxElement) -> Option<Report> {
+    fn check(&self, node: &SyntaxElement, _file_path: &std::path::Path, _src: &str) -> Option<Report> {
         if let SyntaxElement::Node(node) = node
             && let Some(ident) = Ident::cast(node.clone())
             && ident.to_string() == "mkDefault"
@@ -50,7 +50,7 @@ mod tests {
     #[test]
     fn test_mkdefault_triggers() {
         let src = r#"mkDefault 42"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), src).unwrap();
+        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
         assert!(!reports.is_empty());
         assert_eq!(reports[0].code, 102);
     }
@@ -58,7 +58,7 @@ mod tests {
     #[test]
     fn test_lib_mkdefault_triggers() {
         let src = r#"lib.mkDefault "value""#;
-        let reports = nix_lint_core::lint_file(&make_registry(), src).unwrap();
+        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
         assert!(!reports.is_empty());
         assert_eq!(reports[0].code, 102);
     }
@@ -66,14 +66,14 @@ mod tests {
     #[test]
     fn test_mkooverride_no_trigger() {
         let src = r#"lib.mkOverride 500 "value""#;
-        let reports = nix_lint_core::lint_file(&make_registry(), src).unwrap();
+        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
         assert!(reports.is_empty());
     }
 
     #[test]
     fn test_other_ident_no_trigger() {
         let src = r#"myDefault 42"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), src).unwrap();
+        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
         assert!(reports.is_empty());
     }
 }

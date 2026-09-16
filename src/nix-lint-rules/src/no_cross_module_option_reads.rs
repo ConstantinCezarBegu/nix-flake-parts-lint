@@ -43,6 +43,8 @@ static BUILTIN_OPTIONS: &[&str] = &[
     "fonts",
     // nixpkgs XDG options
     "xdg",
+    // common file path config names (xdg.configFile.".../config.json")
+    "json",
     // nixpkgs power management options
     "powerManagement",
     // nixpkgs sound options
@@ -102,10 +104,11 @@ impl FileLevelRule for NoCrossModuleOptionReads {
         let builtin_set: HashSet<&str> = BUILTIN_OPTIONS.iter().copied().collect();
 
         // Match all config.X entry points where X is a namespace.
+        // Matches config.<identifier> followed by non-identifier chars or end of string.
         // Uses \b to match start-of-line and word boundaries.
         // Checks that the char after the namespace is not an identifier continuation char
         // (or we're at end of string) to avoid matching partial identifiers.
-        let config_read_re = Regex::new(r"\bconfig\.([a-zA-Z_]\w*)").unwrap();
+        let config_read_re = Regex::new(r"\bconfig\.([a-zA-Z_]\w*?)\b").unwrap();
         for cap in config_read_re.captures_iter(content) {
             let ns = cap.get(1)?.as_str();
             let match_end = cap.get(1).unwrap().end();
@@ -129,7 +132,7 @@ impl FileLevelRule for NoCrossModuleOptionReads {
         }
 
         // Check assertions: assert followed by config.X entry point.
-        let assert_config_re = Regex::new(r"assert\s+.*?\bconfig\.([a-zA-Z_]\w*)").unwrap();
+        let assert_config_re = Regex::new(r"assert\s+.*?\bconfig\.([a-zA-Z_]\w*?)\b").unwrap();
         for cap in assert_config_re.captures_iter(content) {
             let ns = cap.get(1)?.as_str();
             let match_end = cap.get(1).unwrap().end();

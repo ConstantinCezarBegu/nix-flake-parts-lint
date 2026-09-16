@@ -25,7 +25,7 @@ impl Default for NoDefaults {
 }
 
 impl NoDefaults {
-    fn check(&self, node: &SyntaxElement) -> Option<Report> {
+    fn check(&self, node: &SyntaxElement, _file_path: &std::path::Path, _src: &str) -> Option<Report> {
         if let SyntaxElement::Node(node) = node
             && let Some(attrset) = AttrSet::cast(node.clone())
         {
@@ -67,7 +67,7 @@ mod tests {
           type = lib.types.bool;
           default = false;
         }; }"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), src).unwrap();
+        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
         assert!(!reports.is_empty());
         assert_eq!(reports[0].code, 113);
     }
@@ -77,7 +77,7 @@ mod tests {
         let src = r#"{
           foo = "bar";
         }"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), src).unwrap();
+        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
         assert!(reports.is_empty());
     }
 
@@ -86,7 +86,7 @@ mod tests {
         let src = r#"{
           sources.default = [ pkgs.nixvim ];
         }"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), src).unwrap();
+        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
         assert!(reports.is_empty());
     }
 
@@ -96,7 +96,7 @@ mod tests {
           type = lib.types.str;
           description = "A foo option";
         }"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), src).unwrap();
+        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
         assert!(reports.is_empty());
     }
 }

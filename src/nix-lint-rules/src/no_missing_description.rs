@@ -22,7 +22,7 @@ impl Default for NoMissingDescription {
 }
 
 impl NoMissingDescription {
-    fn check(&self, node: &SyntaxElement) -> Option<Report> {
+    fn check(&self, node: &SyntaxElement, _file_path: &std::path::Path, _src: &str) -> Option<Report> {
         if let SyntaxElement::Node(node) = node
             && let Some(_attrset) = AttrSet::cast(node.clone())
         {
@@ -54,7 +54,7 @@ mod tests {
         let src = r#"{ options.foo = lib.mkOption {
           type = lib.types.bool;
         }; }"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), src).unwrap();
+        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
         assert!(!reports.is_empty());
         assert_eq!(reports[0].code, 111);
     }
@@ -65,7 +65,7 @@ mod tests {
           type = lib.types.bool;
           description = "A foo option";
         }; }"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), src).unwrap();
+        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
         assert!(reports.is_empty());
     }
 
@@ -75,7 +75,7 @@ mod tests {
           foo = "bar";
           baz = 42;
         }"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), src).unwrap();
+        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
         assert!(reports.is_empty());
     }
 
@@ -85,7 +85,7 @@ mod tests {
           type = lib.types.str;
           default = "hello";
         }; }"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), src).unwrap();
+        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
         assert!(!reports.is_empty());
         assert_eq!(reports[0].code, 111);
     }
@@ -96,7 +96,7 @@ mod tests {
           type = lib.types.str;
           example = "hello";
         }; }"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), src).unwrap();
+        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
         assert!(!reports.is_empty());
         assert_eq!(reports[0].code, 111);
     }
@@ -107,7 +107,7 @@ mod tests {
           type = lib.types.bool;
           apply = v: v;
         }; }"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), src).unwrap();
+        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
         assert!(!reports.is_empty());
         assert_eq!(reports[0].code, 111);
     }

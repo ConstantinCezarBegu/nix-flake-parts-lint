@@ -22,10 +22,14 @@ impl Default for NoBuiltinReadfileSecrets {
 }
 
 impl NoBuiltinReadfileSecrets {
-    fn check(&self, node: &SyntaxElement) -> Option<Report> {
+    fn check(&self, node: &SyntaxElement, file_path: &std::path::Path, _src: &str) -> Option<Report> {
         if let SyntaxElement::Node(node) = node
             && let Some(_apply) = Apply::cast(node.clone())
         {
+            let path_str = file_path.to_string_lossy();
+            if path_str.contains("/hosts/") || path_str.starts_with("hosts/") {
+                return None;
+            }
             let text = node.to_string();
             if text.contains("builtins.readFile") {
                 let patterns = [
@@ -57,7 +61,7 @@ mod tests {
     #[test]
     fn test_readfile_age_triggers() {
         let src = r#"builtins.readFile ./secret.age"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), src).unwrap();
+        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
         assert!(!reports.is_empty());
         assert_eq!(reports[0].code, 110);
     }
@@ -65,7 +69,7 @@ mod tests {
     #[test]
     fn test_readfile_key_triggers() {
         let src = r#"builtins.readFile ./server.key"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), src).unwrap();
+        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
         assert!(!reports.is_empty());
         assert_eq!(reports[0].code, 110);
     }
@@ -73,7 +77,7 @@ mod tests {
     #[test]
     fn test_readfile_password_triggers() {
         let src = r#"builtins.readFile ./passwords.txt"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), src).unwrap();
+        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
         assert!(!reports.is_empty());
         assert_eq!(reports[0].code, 110);
     }
@@ -81,14 +85,14 @@ mod tests {
     #[test]
     fn test_readfile_normal_no_trigger() {
         let src = r#"builtins.readFile ./flake.nix"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), src).unwrap();
+        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
         assert!(reports.is_empty());
     }
 
     #[test]
     fn test_readfile_nixpkgs_no_trigger() {
         let src = r#"builtins.readFile "${nixpkgs}/default.nix""#;
-        let reports = nix_lint_core::lint_file(&make_registry(), src).unwrap();
+        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
         assert!(reports.is_empty());
     }
 }

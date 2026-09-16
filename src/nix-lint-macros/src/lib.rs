@@ -91,8 +91,8 @@ pub fn lint(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
 
         impl ::nix_lint_core::Rule for #struct_name {
-            fn validate(&self, node: &crate::rnix::SyntaxElement) -> Option<::nix_lint_core::Report> {
-                self.check(node)
+            fn validate(&self, node: &crate::rnix::SyntaxElement, file_path: &std::path::Path, src: &str) -> Option<::nix_lint_core::Report> {
+                self.check(node, file_path, src)
             }
         }
     };

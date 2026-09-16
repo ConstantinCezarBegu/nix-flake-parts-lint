@@ -43,6 +43,8 @@ static BUILTIN_OPTIONS: &[&str] = &[
     "fonts",
     // nixpkgs XDG options
     "xdg",
+    // common file path config names (xdg.configFile.".../config.json")
+    "json",
     // nixpkgs power management options
     "powerManagement",
     // nixpkgs sound options
@@ -102,10 +104,11 @@ impl FileLevelRule for NoCrossNamespaceWrites {
         let builtin_set: HashSet<&str> = BUILTIN_OPTIONS.iter().copied().collect();
 
         // Match all config.X writes where X is a namespace.
+        // Matches config.<identifier> followed by non-identifier chars or end of string.
         // Uses \b to match start-of-line and word boundaries.
         // Checks that the char after the namespace is not an identifier continuation char
         // (or we're at end of string) to avoid matching partial identifiers.
-        let config_write_re = Regex::new(r"\bconfig\.([a-zA-Z_]\w*)").unwrap();
+        let config_write_re = Regex::new(r"\bconfig\.([a-zA-Z_]\w*?)\b").unwrap();
         for cap in config_write_re.captures_iter(content) {
             let ns = cap.get(1)?.as_str();
             let match_end = cap.get(1).unwrap().end();

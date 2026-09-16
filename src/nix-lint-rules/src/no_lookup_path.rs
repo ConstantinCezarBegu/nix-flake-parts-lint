@@ -21,7 +21,7 @@ impl Default for NoLookupPath {
 }
 
 impl NoLookupPath {
-    fn check(&self, node: &SyntaxElement) -> Option<Report> {
+    fn check(&self, node: &SyntaxElement, _file_path: &std::path::Path, _src: &str) -> Option<Report> {
         let text = match node {
             SyntaxElement::Node(n) => n.to_string(),
             SyntaxElement::Token(t) => t.text().to_string(),
@@ -61,7 +61,7 @@ mod tests {
     #[test]
     fn test_nixpkgs_triggers() {
         let src = r#"<nixpkgs>"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), src).unwrap();
+        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
         assert!(!reports.is_empty());
         assert_eq!(reports[0].code, 106);
     }
@@ -69,7 +69,7 @@ mod tests {
     #[test]
     fn test_nixos_triggers() {
         let src = r#"<nixos>"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), src).unwrap();
+        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
         assert!(!reports.is_empty());
         assert_eq!(reports[0].code, 106);
     }
@@ -77,7 +77,7 @@ mod tests {
     #[test]
     fn test_home_manager_triggers() {
         let src = r#"<home-manager>"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), src).unwrap();
+        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
         assert!(!reports.is_empty());
         assert_eq!(reports[0].code, 106);
     }
@@ -85,7 +85,7 @@ mod tests {
     #[test]
     fn test_nix_darwin_triggers() {
         let src = r#"<nix-darwin>"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), src).unwrap();
+        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
         assert!(!reports.is_empty());
         assert_eq!(reports[0].code, 106);
     }
@@ -93,7 +93,7 @@ mod tests {
     #[test]
     fn test_nix_channel_triggers() {
         let src = r#"<nix-channel>"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), src).unwrap();
+        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
         assert!(!reports.is_empty());
         assert_eq!(reports[0].code, 106);
     }
@@ -101,7 +101,7 @@ mod tests {
     #[test]
     fn test_nix_path_triggers() {
         let src = r#"<nix-path>"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), src).unwrap();
+        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
         assert!(!reports.is_empty());
         assert_eq!(reports[0].code, 106);
     }
@@ -109,14 +109,14 @@ mod tests {
     #[test]
     fn test_normal_string_no_trigger() {
         let src = r#"/nix/store/foo"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), src).unwrap();
+        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
         assert!(reports.is_empty());
     }
 
     #[test]
     fn test_nixos_nixpkgs_triggers() {
         let src = r#"<nixos/nixpkgs>"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), src).unwrap();
+        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
         assert!(!reports.is_empty());
         assert_eq!(reports[0].code, 106);
     }
@@ -124,7 +124,7 @@ mod tests {
     #[test]
     fn test_home_manager_default_triggers() {
         let src = r#"<home-manager/default.nix>"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), src).unwrap();
+        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
         assert!(!reports.is_empty());
         assert_eq!(reports[0].code, 106);
     }
@@ -132,7 +132,7 @@ mod tests {
     #[test]
     fn test_nixos_modules_triggers() {
         let src = r#"<nixos/modules/services/web-apps/caddy.nix>"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), src).unwrap();
+        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
         assert!(!reports.is_empty());
         assert_eq!(reports[0].code, 106);
     }
@@ -140,7 +140,7 @@ mod tests {
     #[test]
     fn test_import_no_trigger() {
         let src = r#"import ./foo.nix"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), src).unwrap();
+        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
         assert!(reports.is_empty());
     }
 }

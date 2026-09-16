@@ -107,7 +107,7 @@ impl Report {
 /// Trait for lint rules that validate AST nodes.
 pub trait Rule: Send + Sync {
     /// Validate the given syntax node and return a report if violations are found.
-    fn validate(&self, node: &SyntaxElement) -> Option<Report>;
+    fn validate(&self, node: &SyntaxElement, file_path: &Path, src: &str) -> Option<Report>;
 }
 
 // ── Metadata trait ──────────────────────────────────────────────────────────
@@ -232,7 +232,7 @@ pub trait Lint: Metadata + Rule + Explain {
 ///
 /// Returns a vector of reports, one per violated rule.
 /// Returns an error if the source contains parse errors.
-pub fn lint_file(registry: &LintRegistry, src: &str) -> Result<Vec<Report>, ParseError> {
+pub fn lint_file(registry: &LintRegistry, file_path: &Path, src: &str) -> Result<Vec<Report>, ParseError> {
     let parsed = rnix::Root::parse(src);
     let errors = parsed.errors();
     if let Some(first_error) = errors.first() {
@@ -241,7 +241,7 @@ pub fn lint_file(registry: &LintRegistry, src: &str) -> Result<Vec<Report>, Pars
     let root = parsed.syntax();
     let mut reports: HashMap<u32, (Severity, Vec<Diagnostic>)> = HashMap::new();
 
-    walk_node(registry, &root, &mut reports);
+    walk_node(registry, &root, file_path, src, &mut reports);
 
     let mut result: Vec<Report> = reports
         .into_iter()
@@ -306,12 +306,14 @@ pub trait FileLevelRule: Send + Sync {
 fn walk_node(
     registry: &LintRegistry,
     node: &SyntaxNode,
+    file_path: &Path,
+    src: &str,
     out: &mut HashMap<u32, (Severity, Vec<Diagnostic>)>,
 ) {
     for child in node.children_with_tokens() {
-        run_node(registry, &child, out);
+        run_node(registry, &child, file_path, src, out);
         if let SyntaxElement::Node(n) = &child {
-            walk_node(registry, n, out);
+            walk_node(registry, n, file_path, src, out);
         }
     }
 }
@@ -319,6 +321,8 @@ fn walk_node(
 fn run_node(
     registry: &LintRegistry,
     node: &SyntaxElement,
+    file_path: &Path,
+    src: &str,
     out: &mut HashMap<u32, (Severity, Vec<Diagnostic>)>,
 ) {
     let kind = node.kind();
@@ -326,7 +330,7 @@ fn run_node(
         let lint = &registry.lints()[idx];
         let code = lint.code();
         let severity = lint.severity();
-        if let Some(report) = lint.as_rule().validate(node) {
+        if let Some(report) = lint.as_rule().validate(node, file_path, src) {
             out.entry(code)
                 .or_insert_with(|| (severity, Vec::new()))
                 .1

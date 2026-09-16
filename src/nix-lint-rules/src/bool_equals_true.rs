@@ -25,7 +25,7 @@ impl Default for BoolEqualsTrue {
 }
 
 impl BoolEqualsTrue {
-    fn check(&self, node: &SyntaxElement) -> Option<Report> {
+    fn check(&self, node: &SyntaxElement, _file_path: &std::path::Path, _src: &str) -> Option<Report> {
         if let SyntaxElement::Node(node) = node
             && let Some(bin_op) = BinOp::cast(node.clone())
             && let (Some(lhs), Some(rhs)) = (bin_op.lhs(), bin_op.rhs())
@@ -78,7 +78,7 @@ mod tests {
     #[test]
     fn test_equals_true_triggers() {
         let src = r#"x == true"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), src).unwrap();
+        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
         assert!(!reports.is_empty());
         assert_eq!(reports[0].code, 119);
     }
@@ -86,7 +86,7 @@ mod tests {
     #[test]
     fn test_true_equals_triggers() {
         let src = r#"true == x"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), src).unwrap();
+        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
         assert!(!reports.is_empty());
         assert_eq!(reports[0].code, 119);
     }
@@ -94,7 +94,7 @@ mod tests {
     #[test]
     fn test_equals_false_triggers() {
         let src = r#"x == false"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), src).unwrap();
+        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
         assert!(!reports.is_empty());
         assert_eq!(reports[0].code, 119);
     }
@@ -102,7 +102,7 @@ mod tests {
     #[test]
     fn test_not_equals_true_triggers() {
         let src = r#"x != true"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), src).unwrap();
+        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
         assert!(!reports.is_empty());
         assert_eq!(reports[0].code, 119);
     }
@@ -110,7 +110,7 @@ mod tests {
     #[test]
     fn test_not_equals_false_triggers() {
         let src = r#"x != false"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), src).unwrap();
+        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
         assert!(!reports.is_empty());
         assert_eq!(reports[0].code, 119);
     }
@@ -118,14 +118,14 @@ mod tests {
     #[test]
     fn test_normal_comparison_no_trigger() {
         let src = r#"x == 42"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), src).unwrap();
+        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
         assert!(reports.is_empty());
     }
 
     #[test]
     fn test_normal_boolean_no_trigger() {
         let src = r#"x && y"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), src).unwrap();
+        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
         assert!(reports.is_empty());
     }
 }

@@ -45,13 +45,71 @@ impl FileLevelRule for UnusedOptions {
             return None;
         }
 
-        // Find unused options - options defined but not referenced in config within same file
+        // Check if an option is referenced in config within the file
+        fn is_option_used(option: &str, content: &str) -> bool {
+            let parts: Vec<&str> = option.split('.').collect();
+
+            // Check direct access: config.foo.bar
+            if content.contains(&format!("config.{}", option)) {
+                return true;
+            }
+
+            // Check string-keyed access: config."foo.bar" or config."foo".bar
+            if content.contains(&format!("config.\"{}\"", option)) {
+                return true;
+            }
+
+            // Check string-keyed access to first segment: config."foo".bar.baz
+            if parts.len() >= 2 {
+                let first = parts[0];
+                let rest = parts[1..].join(".");
+                let quoted_pattern = format!("config.\"{}\".{}", first, rest);
+                if content.contains(&quoted_pattern) {
+                    return true;
+                }
+            }
+
+            false
+        }
+
+        // Check if an option definition is inside a non-NixOS context (local data structures)
+        fn is_local_option(option: &str, content: &str) -> bool {
+            // Check if this option appears inside a let-binding data structure (not in config = { ... })
+            // Pattern: localBundles.options.X or similar data structures
+            let pattern = format!("options.{}", option);
+            let lines: Vec<&str> = content.lines().collect();
+            for line in &lines {
+                let trimmed = line.trim();
+                if trimmed.starts_with(&pattern) || trimmed.contains(&format!(".{}", option)) {
+                    // Check if this line is inside a data structure (preceded by let { or inside localBundles)
+                    // Look backwards from this line to find if we're inside a let { block
+                    let before = &content[..content.find(*line).unwrap_or(0)];
+                    // Check if it's a Nixvim keymap option (options.silent inside keymaps array)
+                    if option == "silent" || option.starts_with("silent.") {
+                        if before.contains("keymaps") || before.contains("programs.nixvim") {
+                            return true;
+                        }
+                    }
+                    // If preceded by "let" and not inside "config =", it's likely a local data structure
+                    if before.contains("let") && !before.ends_with("config =") && !before.ends_with("config=") {
+                        // Check if it's inside a local data structure (before config =)
+                        if before.find("config =").is_none() && before.find("config=").is_none() {
+                            return true;
+                        }
+                    }
+                }
+            }
+            false
+        }
+
         let unused: Vec<&str> = defined_options
             .iter()
-            .filter(|opt_path| {
-                // Use literal dot matching (not regex) for contains()
-                let config_pattern = format!("config.{}", opt_path);
-                !content.contains(&config_pattern)
+            .filter(|opt| {
+                // Skip options that are in local data structures (not NixOS module options)
+                if is_local_option(opt, content) {
+                    return false;
+                }
+                !is_option_used(opt, content)
             })
             .map(|s| s.as_str())
             .collect();

@@ -283,7 +283,7 @@ fn lint_file_messages(
     let mut messages = Vec::new();
     let mut has_issues = false;
 
-    match nix_lint_core::lint_file(registry, src) {
+    match nix_lint_core::lint_file(registry, path, src) {
         Ok(reports) => {
             for report in &reports {
                 if config.disabled.contains(&report.code.to_string()) {
