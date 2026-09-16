@@ -28,7 +28,7 @@ impl FileLevelRule for FlakesOptionsInDefaultOrHostsOption {
         Severity::Error
     }
     fn note(&self) -> &'static str {
-        "Every options.X namespace must be in its own X-option.nix file. default.nix is allowed for shared configs."
+        "Every config.X or options.X namespace must be in its own X-option.nix file. default.nix is allowed for shared configs."
     }
 
     fn validate_file(&self, path: &Path, content: &str) -> Option<FileLevelReport> {
@@ -39,32 +39,31 @@ impl FileLevelRule for FlakesOptionsInDefaultOrHostsOption {
             return None;
         }
 
-        // Check if this file defines any top-level options (options.X = ... or options.X.Y = ...).
-        let options_re = Regex::new(r"\boptions\.([a-zA-Z_][a-zA-Z0-9_\-]*(?:\.[a-zA-Z_][a-zA-Z0-9_\-]*)*)\s*=").unwrap();
-        let has_options = options_re.is_match(content);
-        if !has_options {
-            return None;
-        }
-
         // Check if it's a default.nix file (valid - shared config for directory)
         if path.file_name().is_some_and(|n| n == "default.nix") {
             return None;
         }
 
-        // Extract the top-level option namespace to verify correct filename
-        if let Some(cap) = options_re.captures(content) {
-            let full_match = cap.get(1)?.as_str();
+        // Match both config.X and options.X namespaces
+        let config_re = Regex::new(r"\b(config|options)\.([a-zA-Z_][a-zA-Z0-9_\-]*(?:\.[a-zA-Z_][a-zA-Z0-9_\-]*)*)\s*=").unwrap();
+        if !config_re.is_match(content) {
+            return None;
+        }
+
+        for cap in config_re.captures_iter(content) {
+            let full_match = cap.get(2)?.as_str();
             let ns = full_match.split('.').next()?;
+            let qualifier = cap.get(1)?.as_str();
             if let Some(file_name) = path.file_name().and_then(|n| n.to_str()) {
                 let expected = format!("{}-option.nix", ns);
                 if file_name == expected {
-                    return None;
+                    continue;
                 }
                 return Some(FileLevelReport {
                     file: path_str.into_owned(),
                     message: format!(
-                        "Defines options.{} but file is '{}', expected '{}'",
-                        ns, file_name, expected
+                        "Defines {}.{} but file is '{}', expected '{}'",
+                        qualifier, ns, file_name, expected
                     ),
                     note: self.note(),
                     code: self.code(),
@@ -144,6 +143,20 @@ mod tests {
         }"#;
         let report = rule.validate_file(&make_path("hosts/config.nix"), content);
         assert!(report.is_some(), "hosts/config.nix should be invalid");
+        assert!(
+            report.unwrap().message.contains("myService-option.nix"),
+            "Should suggest myService-option.nix"
+        );
+    }
+
+    #[test]
+    fn test_config_pattern_invalid() {
+        let rule = FlakesOptionsInDefaultOrHostsOption::new();
+        let content = r#"{ config }: {
+          config.myService.foo = true;
+        }"#;
+        let report = rule.validate_file(&make_path("hosts/config.nix"), content);
+        assert!(report.is_some(), "hosts/config.nix should flag config.myService");
         assert!(
             report.unwrap().message.contains("myService-option.nix"),
             "Should suggest myService-option.nix"
