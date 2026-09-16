@@ -17,6 +17,49 @@ impl Default for FlakesOptionsInDefaultOrHostsOption {
     }
 }
 
+/// Extract top-level namespaces from a `config = { ... }` or `options = { ... }` block.
+/// Looks for `key = ` patterns at the top level of the block (indented once).
+fn extract_top_level_ns(content: &str, keyword: &str) -> Vec<String> {
+    let block_re = Regex::new(&format!(r"\b{}\s*=\s*\{{", regex::escape(keyword))).unwrap();
+    let ns_re = Regex::new(r"(?m)^\s*([a-zA-Z_][a-zA-Z0-9_\-]*(?:\.[a-zA-Z_][a-zA-Z0-9_\-]*)*)\s*(?:=|=\s*\{)").unwrap();
+
+    let mut result = Vec::new();
+    for m in block_re.find_iter(content) {
+        let start = m.start();
+        let block_content_str = &content[start..];
+        // Extract only the block content (stop at unmatched closing brace)
+        let mut depth = 1;
+        let mut end = start + m.end();
+        for (i, ch) in block_content_str.chars().enumerate() {
+            end = start + i;
+            match ch {
+                '{' => depth += 1,
+                '}' => {
+                    depth -= 1;
+                    if depth == 0 {
+                        break;
+                    }
+                }
+                _ => {}
+            }
+        }
+        let block_slice = &content[m.end()..end];
+        for cap in ns_re.captures_iter(block_slice) {
+            if let Some(key) = cap.get(1) {
+                let full_key = key.as_str();
+                // Extract just the top-level namespace (first segment before any .)
+                let ns = full_key.split('.').next().unwrap_or(full_key);
+                // Skip nixpkgs and other special keys that are expected to group multiple things
+                if ns == "nixpkgs" || ns == "home-manager" {
+                    continue;
+                }
+                result.push(ns.to_string());
+            }
+        }
+    }
+    result
+}
+
 impl FileLevelRule for FlakesOptionsInDefaultOrHostsOption {
     fn code(&self) -> u32 {
         121
@@ -44,7 +87,45 @@ impl FileLevelRule for FlakesOptionsInDefaultOrHostsOption {
             return None;
         }
 
-        // Match both config.X and options.X namespaces
+        let file_name = path.file_name().and_then(|n| n.to_str())?;
+
+        // Check for `config = { ... }` or `options = { ... }` blocks with multiple namespaces
+        for keyword in ["config", "options"] {
+            let top_ns = extract_top_level_ns(content, keyword);
+            if top_ns.len() > 1 {
+                return Some(FileLevelReport {
+                    file: path_str.into_owned(),
+                    message: format!(
+                        "Defines multiple {} namespaces ({}) but file is '{}'",
+                        keyword,
+                        top_ns.join(", "),
+                        file_name
+                    ),
+                    note: self.note(),
+                    code: self.code(),
+                    severity: self.severity(),
+                });
+            }
+            if top_ns.len() == 1 {
+                let ns = &top_ns[0];
+                let expected = format!("{}-option.nix", ns);
+                if file_name == expected {
+                    continue;
+                }
+                return Some(FileLevelReport {
+                    file: path_str.into_owned(),
+                    message: format!(
+                        "Defines {}.{} but file is '{}', expected '{}'",
+                        keyword, ns, file_name, expected
+                    ),
+                    note: self.note(),
+                    code: self.code(),
+                    severity: self.severity(),
+                });
+            }
+        }
+
+        // Fallback: match config.X or options.X direct patterns
         let config_re = Regex::new(r"\b(config|options)\.([a-zA-Z_][a-zA-Z0-9_\-]*(?:\.[a-zA-Z_][a-zA-Z0-9_\-]*)*)\s*=").unwrap();
         if !config_re.is_match(content) {
             return None;
@@ -54,22 +135,20 @@ impl FileLevelRule for FlakesOptionsInDefaultOrHostsOption {
             let full_match = cap.get(2)?.as_str();
             let ns = full_match.split('.').next()?;
             let qualifier = cap.get(1)?.as_str();
-            if let Some(file_name) = path.file_name().and_then(|n| n.to_str()) {
-                let expected = format!("{}-option.nix", ns);
-                if file_name == expected {
-                    continue;
-                }
-                return Some(FileLevelReport {
-                    file: path_str.into_owned(),
-                    message: format!(
-                        "Defines {}.{} but file is '{}', expected '{}'",
-                        qualifier, ns, file_name, expected
-                    ),
-                    note: self.note(),
-                    code: self.code(),
-                    severity: self.severity(),
-                });
+            let expected = format!("{}-option.nix", ns);
+            if file_name == expected {
+                continue;
             }
+            return Some(FileLevelReport {
+                file: path_str.into_owned(),
+                message: format!(
+                    "Defines {}.{} but file is '{}', expected '{}'",
+                    qualifier, ns, file_name, expected
+                ),
+                note: self.note(),
+                code: self.code(),
+                severity: self.severity(),
+            });
         }
 
         None
@@ -238,5 +317,60 @@ mod tests {
         }"#;
         let report = rule.validate_file(&make_path("hosts/boot.nix"), content);
         assert!(report.is_some(), "hosts/boot.nix should be invalid");
+    }
+
+    #[test]
+    fn test_user_nix_multiple_namespaces() {
+        let rule = FlakesOptionsInDefaultOrHostsOption::new();
+        let content = r#"{ config, pkgs, ... }: {
+          config = {
+            user.hostname = "test";
+            networking.hostName = "test";
+            session.user = "test";
+            nixos.cpuType = "amd";
+            sway.keybindingLayout = "qwerty";
+            home-manager.users.test.home.packages = [];
+          };
+        }"#;
+        let report = rule.validate_file(&make_path("hosts/user.nix"), content);
+        assert!(report.is_some(), "user.nix should flag multiple namespaces");
+        let msg = report.unwrap().message;
+        assert!(
+            msg.contains("user.nix") && msg.contains("user, networking, session"),
+            "Should list multiple namespaces, got: {}",
+            msg
+        );
+    }
+
+    #[test]
+    fn test_single_namespace_config_block_valid() {
+        let rule = FlakesOptionsInDefaultOrHostsOption::new();
+        let content = r#"{ lib }: {
+          config = {
+            wayland.sway.enable = true;
+          };
+        }"#;
+        let report = rule.validate_file(&make_path("hosts/wayland-option.nix"), content);
+        assert!(report.is_none(), "wayland-option.nix with single namespace should be valid");
+    }
+
+    #[test]
+    fn test_config_nix_multiple_namespaces() {
+        let rule = FlakesOptionsInDefaultOrHostsOption::new();
+        let content = r#"{ config, ... }: {
+          config = {
+            user.hostname = "test";
+            networking.hostName = "test";
+            nixpkgs.hostPlatform = "x86_64-linux";
+          };
+        }"#;
+        let report = rule.validate_file(&make_path("hosts/config.nix"), content);
+        assert!(report.is_some(), "config.nix should flag multiple namespaces");
+        let msg = report.unwrap().message;
+        assert!(
+            msg.contains("user, networking"),
+            "Should list namespaces excluding nixpkgs, got: {}",
+            msg
+        );
     }
 }
