@@ -47,8 +47,14 @@ fn extract_top_level_ns(content: &str, keyword: &str) -> Vec<String> {
         for cap in ns_re.captures_iter(block_slice) {
             if let Some(key) = cap.get(1) {
                 let full_key = key.as_str();
-                // Extract just the top-level namespace (first segment before any .)
-                let ns = full_key.split('.').next().unwrap_or(full_key);
+                let segments: Vec<&str> = full_key.split('.').collect();
+                // For `programs` use the second segment (e.g. programs.ssh → ssh);
+                // for everything else use the first segment (e.g. config.user → user).
+                let ns = if segments.first() == Some(&"programs") {
+                    segments.get(1).map(|s| *s).unwrap_or(full_key)
+                } else {
+                    segments.first().map(|s| *s).unwrap_or(full_key)
+                };
                 // Skip nixpkgs and other special keys that are expected to group multiple things
                 if ns == "nixpkgs" || ns == "home-manager" {
                     continue;
@@ -71,7 +77,7 @@ impl FileLevelRule for FlakesOptionsInDefaultOrHostsOption {
         Severity::Error
     }
     fn note(&self) -> &'static str {
-        "Every config.X or options.X namespace must be in its own X-option.nix file. default.nix is allowed for shared configs."
+        "Every config.X.Y should be in its own Y-option.nix file. default.nix is allowed for shared configs."
     }
 
     fn validate_file(&self, path: &Path, content: &str) -> Option<FileLevelReport> {
@@ -132,8 +138,13 @@ impl FileLevelRule for FlakesOptionsInDefaultOrHostsOption {
         }
 
         for cap in config_re.captures_iter(content) {
-            let full_match = cap.get(2)?.as_str();
-            let ns = full_match.split('.').next()?;
+                let full_match = cap.get(2)?.as_str();
+                let segments: Vec<&str> = full_match.split('.').collect();
+                let ns = if segments.first() == Some(&"programs") {
+                    segments.get(1).map(|s| *s).unwrap_or(full_match)
+                } else {
+                    segments.first().map(|s| *s).unwrap_or(full_match)
+                };
             let qualifier = cap.get(1)?.as_str();
             let expected = format!("{}-option.nix", ns);
             if file_name == expected {
@@ -197,8 +208,32 @@ mod tests {
         let content = r#"{ lib }: {
           options.git.autocrlf = lib.mkOption { type = lib.types.str; };
         }"#;
-        let report = rule.validate_file(&make_path("git-option.nix"), content);
-        assert!(report.is_none(), "git-option.nix should be valid");
+        let report = rule.validate_file(&make_path("autocrlf-option.nix"), content);
+        assert!(report.is_none(), "autocrlf-option.nix should be valid");
+    }
+
+    #[test]
+    fn test_ssh_option_nix_valid() {
+        let rule = FlakesOptionsInDefaultOrHostsOption::new();
+        let content = r#"{ lib }: {
+          options.programs.ssh.knownHosts = {};
+        }"#;
+        let report = rule.validate_file(&make_path("ssh-option.nix"), content);
+        assert!(report.is_none(), "ssh-option.nix should be valid");
+    }
+
+    #[test]
+    fn test_hosts_ssh_nix_invalid() {
+        let rule = FlakesOptionsInDefaultOrHostsOption::new();
+        let content = r#"{ lib }: {
+          options.programs.ssh.knownHosts = {};
+        }"#;
+        let report = rule.validate_file(&make_path("hosts/programs.nix"), content);
+        assert!(report.is_some(), "hosts/programs.nix should be invalid");
+        assert!(
+            report.unwrap().message.contains("ssh-option.nix"),
+            "Should suggest ssh-option.nix"
+        );
     }
 
     #[test]
@@ -267,16 +302,6 @@ mod tests {
     }
 
     #[test]
-    fn test_hosts_ssh_nix_invalid() {
-        let rule = FlakesOptionsInDefaultOrHostsOption::new();
-        let content = r#"{ lib }: {
-          options.programs.ssh.knownHosts = {};
-        }"#;
-        let report = rule.validate_file(&make_path("hosts/ssh.nix"), content);
-        assert!(report.is_some(), "hosts/ssh.nix should be invalid");
-    }
-
-    #[test]
     fn test_hosts_secrets_server_default_nix_valid() {
         let rule = FlakesOptionsInDefaultOrHostsOption::new();
         let content = r#"{ lib }: {
@@ -305,7 +330,7 @@ mod tests {
         assert!(report.is_some(), "workspace-move-focus.nix should be invalid");
         assert!(
             report.unwrap().message.contains("wayland-option.nix"),
-            "Should suggest wayland-option.nix (top-level namespace)"
+            "Should suggest wayland-option.nix (first segment)"
         );
     }
 
@@ -336,8 +361,8 @@ mod tests {
         assert!(report.is_some(), "user.nix should flag multiple namespaces");
         let msg = report.unwrap().message;
         assert!(
-            msg.contains("user.nix") && msg.contains("user, networking, session"),
-            "Should list multiple namespaces, got: {}",
+            msg.contains("user.nix") && msg.contains("user, networking, session, nixos, sway"),
+            "Should list first segments, got: {}",
             msg
         );
     }
@@ -369,7 +394,7 @@ mod tests {
         let msg = report.unwrap().message;
         assert!(
             msg.contains("user, networking"),
-            "Should list namespaces excluding nixpkgs, got: {}",
+            "Should list first segments excluding nixpkgs, got: {}",
             msg
         );
     }
