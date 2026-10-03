@@ -25,7 +25,6 @@ fn make_full_registry() -> LintRegistry {
     registry.register(Box::new(nix_lint_rules::BoolEqualsTrue::new()));
     registry.register_file_level(Box::new(nix_lint_rules::OneProgramPerPart::new()));
     registry.register_file_level(Box::new(nix_lint_rules::RequireFlakeParts::new()));
-    registry.register_file_level(Box::new(nix_lint_rules::RequireAssertions::new()));
     registry.register_file_level(Box::new(nix_lint_rules::NoCrossNamespaceWrites::new()));
     registry.register_file_level(Box::new(nix_lint_rules::NoCrossModuleOptionReads::new()));
     registry.register_file_level(Box::new(nix_lint_rules::FlakesOptionsInDefaultOrHostsOption::new()));

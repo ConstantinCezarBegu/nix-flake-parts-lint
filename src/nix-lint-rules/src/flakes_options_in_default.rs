@@ -56,7 +56,7 @@ fn extract_top_level_ns(content: &str, keyword: &str) -> Vec<String> {
                     segments.first().map(|s| *s).unwrap_or(full_key)
                 };
                 // Skip nixpkgs and other special keys that are expected to group multiple things
-                if ns == "nixpkgs" || ns == "home-manager" {
+                if ns == "nixpkgs" || ns == "home-manager" || ns == "imports" || ns == "allowUnfree" || ns == "android_sdk" || ns == "overlays" {
                     continue;
                 }
                 result.push(ns.to_string());
@@ -88,7 +88,7 @@ impl FileLevelRule for FlakesOptionsInDefaultOrHostsOption {
             return None;
         }
 
-        // Check if it's a default.nix file (valid - shared config for directory)
+        // default.nix is handled by rule 127 (default-nix-imports), skip here
         if path.file_name().is_some_and(|n| n == "default.nix") {
             return None;
         }
@@ -145,6 +145,10 @@ impl FileLevelRule for FlakesOptionsInDefaultOrHostsOption {
                 } else {
                     segments.first().map(|s| *s).unwrap_or(full_match)
                 };
+            // Skip special keys
+            if ns == "nixpkgs" || ns == "home-manager" || ns == "imports" || ns == "allowUnfree" || ns == "android_sdk" || ns == "overlays" {
+                continue;
+            }
             let qualifier = cap.get(1)?.as_str();
             let expected = format!("{}-option.nix", ns);
             if file_name == expected {

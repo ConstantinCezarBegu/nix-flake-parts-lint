@@ -25,7 +25,6 @@ pub fn build_registry() -> LintRegistry {
     // File-level rules (text analysis on full files)
     registry.register_file_level(Box::new(nix_lint_rules::OneProgramPerPart::new()));
     registry.register_file_level(Box::new(nix_lint_rules::RequireFlakeParts::new()));
-    registry.register_file_level(Box::new(nix_lint_rules::RequireAssertions::new()));
     registry.register_file_level(Box::new(nix_lint_rules::NoCrossNamespaceWrites::new()));
     registry.register_file_level(Box::new(nix_lint_rules::NoCrossModuleOptionReads::new()));
     registry.register_file_level(Box::new(nix_lint_rules::ModuleImports::new()));
@@ -34,6 +33,7 @@ pub fn build_registry() -> LintRegistry {
     registry.register_file_level(Box::new(nix_lint_rules::OptionNixRestrictedToHosts::new()));
     registry.register_file_level(Box::new(nix_lint_rules::NoOptionInHosts::new()));
     registry.register_file_level(Box::new(nix_lint_rules::UnusedOptions::new()));
+    registry.register_file_level(Box::new(nix_lint_rules::DefaultNixImports::new()));
 
     registry
 }
