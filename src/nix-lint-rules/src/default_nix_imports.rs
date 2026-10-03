@@ -39,7 +39,12 @@ impl FileLevelRule for DefaultNixImports {
 
         // Find top-level config.X or options.X patterns (first segment only)
         // We flag any where X is NOT "flake" (e.g. config.user, config.networking)
-        let config_re = Regex::new(r"(?m)^\s*(config|options)\.([a-zA-Z_][a-zA-Z0-9_\-]*(?:\.[a-zA-Z_][a-zA-Z0-9_\-]*)*)\s*=").unwrap();
+        // `=[^=]` (not just `\s*=`) so this requires a real assignment, not
+        // a comparison (==) — which matters when e.g. a long
+        // `child.enable = config.foo.bar == "baz";` line gets wrapped by
+        // nixfmt, landing `config.foo.bar == "baz";` alone at the start of
+        // its own line.
+        let config_re = Regex::new(r"(?m)^\s*(config|options)\.([a-zA-Z_][a-zA-Z0-9_\-]*(?:\.[a-zA-Z_][a-zA-Z0-9_\-]*)*)\s*=[^=]").unwrap();
 
         for cap in config_re.captures_iter(content) {
             let qualifier = cap.get(1)?.as_str();
@@ -73,7 +78,7 @@ impl FileLevelRule for DefaultNixImports {
             // present), which isn't delegation, it's just the module header.
             if qualifier == "options" {
                 let delegation_re = Regex::new(&format!(
-                    r"(?m)^\s*[a-zA-Z_][a-zA-Z0-9_\-]*(?:\.[a-zA-Z_][a-zA-Z0-9_\-]*)+\s*=[^;\n]*\bconfig\.{}\b",
+                    r"(?m)^\s*[a-zA-Z_][a-zA-Z0-9_\-]*(?:\.[a-zA-Z_][a-zA-Z0-9_\-]*)+\s*=[^=;\n][^;\n]*\bconfig\.{}\b",
                     regex::escape(full_path)
                 ))
                 .ok()?;
@@ -243,6 +248,12 @@ mod tests {
     #[test]
     fn test_option_delegated_to_child_option_valid() {
         let rule = DefaultNixImports::new();
+        // The second assignment is wrapped across two lines exactly as
+        // nixfmt would format it once the line gets too long — the
+        // continuation line starts with `config.<path> == "svalboard";`,
+        // which must not be mistaken for a new top-level `config.X =`
+        // assignment (the `=` there is the first char of `==`, not a real
+        // assignment).
         let content = r#"{ lib, config, ... }:
 {
   options.wayland.sway.controls.keybindingLayout = lib.mkOption {
@@ -251,7 +262,8 @@ mod tests {
 
   config = {
     wayland.sway.controls.qwerty.enable = config.wayland.sway.controls.keybindingLayout == "qwerty";
-    wayland.sway.controls.svalboard.enable = config.wayland.sway.controls.keybindingLayout == "svalboard";
+    wayland.sway.controls.svalboard.enable =
+      config.wayland.sway.controls.keybindingLayout == "svalboard";
   };
 }"#;
         let report = rule.validate_file(&make_path("wayland/sway/controls/default.nix"), content);
