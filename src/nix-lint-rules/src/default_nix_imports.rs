@@ -65,12 +65,15 @@ impl FileLevelRule for DefaultNixImports {
             // child module's own, more specific option (mirrors
             // nixos.hardware.cpuType = config.nixos.cpuType; for the
             // cpuType/gpuType pattern): look for a *different*, dotted
-            // (multi-segment) assignment elsewhere that reads config.<path>.
-            // A plain single-identifier let-binding (no dot) doesn't count —
-            // that's local consumption, not delegation to a child option.
+            // (multi-segment) assignment on the SAME LINE that reads
+            // config.<path>. A plain single-identifier let-binding (no dot)
+            // doesn't count as delegation, and the match must not cross
+            // lines — otherwise it would also match across the file's own
+            // `flake.modules.X.Y = { ... }:` wrapper (always dotted, always
+            // present), which isn't delegation, it's just the module header.
             if qualifier == "options" {
                 let delegation_re = Regex::new(&format!(
-                    r"(?m)^\s*[a-zA-Z_][a-zA-Z0-9_\-]*(?:\.[a-zA-Z_][a-zA-Z0-9_\-]*)+\s*=[^;]*\bconfig\.{}\b",
+                    r"(?m)^\s*[a-zA-Z_][a-zA-Z0-9_\-]*(?:\.[a-zA-Z_][a-zA-Z0-9_\-]*)+\s*=[^;\n]*\bconfig\.{}\b",
                     regex::escape(full_path)
                 ))
                 .ok()?;
@@ -261,25 +264,39 @@ mod tests {
     #[test]
     fn test_option_local_let_binding_still_invalid() {
         let rule = DefaultNixImports::new();
-        let content = r#"{ lib, config, pkgs, ... }:
+        // Mirrors the real file's shape: the option is declared and read
+        // *inside* the flake.modules.X.Y = { ... }: wrapper, not at the
+        // outer top level. A naive delegation search spanning multiple
+        // lines would wrongly treat the dotted wrapper assignment itself
+        // (flake.modules.darwin.aerospace = ...) as "delegation" just
+        // because config.<path> appears somewhere later before any
+        // semicolon — this must stay flagged.
+        let content = r#"{ lib, ... }:
 {
-  options.darwin.aerospace.keybindingLayout = lib.mkOption {
-    type = lib.types.enum [ "qwerty" "svalboard" ];
-  };
-
-  config =
+  flake.modules.darwin.aerospace =
+    {
+      config,
+      pkgs,
+      ...
+    }:
     let
       keybindingFile =
         if config.darwin.aerospace.keybindingLayout == "svalboard" then ./svalboard.nix else ./qwerty.nix;
     in
     {
-      services.aerospace.enable = true;
+      options.darwin.aerospace.keybindingLayout = lib.mkOption {
+        type = lib.types.enum [ "qwerty" "svalboard" ];
+      };
+
+      config = {
+        services.aerospace.enable = true;
+      };
     };
 }"#;
         let report = rule.validate_file(&make_path("darwin/aerospace/default.nix"), content);
         assert!(
             report.is_some(),
-            "reading the option into a plain (non-dotted) let-binding is local consumption, not delegation to a child option, and should still be flagged"
+            "reading the option into a plain (non-dotted) let-binding is local consumption, not delegation to a child option, and should still be flagged even though the file's own flake.modules.X.Y = wrapper is a dotted assignment too"
         );
     }
 }
