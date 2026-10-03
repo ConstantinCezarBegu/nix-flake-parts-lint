@@ -61,6 +61,24 @@ impl FileLevelRule for DefaultNixImports {
                 }
             }
 
+            // Allow a top-level option whose value is pushed down into a
+            // child module's own, more specific option (mirrors
+            // nixos.hardware.cpuType = config.nixos.cpuType; for the
+            // cpuType/gpuType pattern): look for a *different*, dotted
+            // (multi-segment) assignment elsewhere that reads config.<path>.
+            // A plain single-identifier let-binding (no dot) doesn't count —
+            // that's local consumption, not delegation to a child option.
+            if qualifier == "options" {
+                let delegation_re = Regex::new(&format!(
+                    r"(?m)^\s*[a-zA-Z_][a-zA-Z0-9_\-]*(?:\.[a-zA-Z_][a-zA-Z0-9_\-]*)+\s*=[^;]*\bconfig\.{}\b",
+                    regex::escape(full_path)
+                ))
+                .ok()?;
+                if delegation_re.is_match(content) {
+                    continue;
+                }
+            }
+
             return Some(FileLevelReport {
                 file: path_str.into_owned(),
                 message: format!("Top-level {}.{} found in default.nix", qualifier, key),
@@ -216,6 +234,52 @@ mod tests {
         assert!(
             report.is_none(),
             "a nixvim keymap's options.silent field is not a module option/config assignment"
+        );
+    }
+
+    #[test]
+    fn test_option_delegated_to_child_option_valid() {
+        let rule = DefaultNixImports::new();
+        let content = r#"{ lib, config, ... }:
+{
+  options.wayland.sway.controls.keybindingLayout = lib.mkOption {
+    type = lib.types.enum [ "qwerty" "svalboard" ];
+  };
+
+  config = {
+    wayland.sway.controls.qwerty.enable = config.wayland.sway.controls.keybindingLayout == "qwerty";
+    wayland.sway.controls.svalboard.enable = config.wayland.sway.controls.keybindingLayout == "svalboard";
+  };
+}"#;
+        let report = rule.validate_file(&make_path("wayland/sway/controls/default.nix"), content);
+        assert!(
+            report.is_none(),
+            "an option pushed down into a child module's own option (mirroring cpuType/gpuType) should be valid"
+        );
+    }
+
+    #[test]
+    fn test_option_local_let_binding_still_invalid() {
+        let rule = DefaultNixImports::new();
+        let content = r#"{ lib, config, pkgs, ... }:
+{
+  options.darwin.aerospace.keybindingLayout = lib.mkOption {
+    type = lib.types.enum [ "qwerty" "svalboard" ];
+  };
+
+  config =
+    let
+      keybindingFile =
+        if config.darwin.aerospace.keybindingLayout == "svalboard" then ./svalboard.nix else ./qwerty.nix;
+    in
+    {
+      services.aerospace.enable = true;
+    };
+}"#;
+        let report = rule.validate_file(&make_path("darwin/aerospace/default.nix"), content);
+        assert!(
+            report.is_some(),
+            "reading the option into a plain (non-dotted) let-binding is local consumption, not delegation to a child option, and should still be flagged"
         );
     }
 }
