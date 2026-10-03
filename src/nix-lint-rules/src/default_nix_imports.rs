@@ -51,6 +51,16 @@ impl FileLevelRule for DefaultNixImports {
                 continue;
             }
 
+            // Nixvim keymap entries carry their own `options.silent = true;`
+            // field (unrelated to NixOS module options) — not a module
+            // option/config assignment at all.
+            if key == "silent" {
+                let before = &content[..cap.get(0)?.start()];
+                if before.contains("keymaps") || before.contains("programs.nixvim") {
+                    continue;
+                }
+            }
+
             return Some(FileLevelReport {
                 file: path_str.into_owned(),
                 message: format!("Top-level {}.{} found in default.nix", qualifier, key),
@@ -181,6 +191,31 @@ mod tests {
         assert!(
             report.is_none(),
             "non-default.nix should not be checked by this rule"
+        );
+    }
+
+    #[test]
+    fn test_nixvim_keymap_silent_option_valid() {
+        let rule = DefaultNixImports::new();
+        let content = r#"{ ... }:
+{
+  imports = [ ./insert-mode.nix ];
+
+  flake.modules.homeManager.keymaps = {
+    programs.nixvim.keymaps = [
+      {
+        mode = "n";
+        key = "<leader>w";
+        action = "<cmd>w<CR>";
+        options.silent = true;
+      }
+    ];
+  };
+}"#;
+        let report = rule.validate_file(&make_path("development/nixvim/keymaps/default.nix"), content);
+        assert!(
+            report.is_none(),
+            "a nixvim keymap's options.silent field is not a module option/config assignment"
         );
     }
 }

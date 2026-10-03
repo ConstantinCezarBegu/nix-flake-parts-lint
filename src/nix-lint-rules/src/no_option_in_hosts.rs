@@ -39,8 +39,13 @@ impl FileLevelRule for NoOptionInHosts {
             return None;
         }
 
-        // Match all option.X and options.X references (not config.X)
-        let option_re = Regex::new(r"\boptions?\s*\.\s*([a-zA-Z_]\w*)").unwrap();
+        // Match option.X = / options.X = declarations (not config.X, and not a
+        // mere `./foo-option.nix` import path, which also contains the
+        // literal substring "option." but is never followed by `=`).
+        let option_re = Regex::new(
+            r"\boptions?\s*\.\s*([a-zA-Z_][a-zA-Z0-9_\-]*)(?:\s*\.\s*[a-zA-Z_][a-zA-Z0-9_\-]*)*\s*=",
+        )
+        .unwrap();
 
         for cap in option_re.captures_iter(content) {
             let ns = cap.get(1)?.as_str();
@@ -155,6 +160,22 @@ mod tests {
         assert!(
             report.is_some(),
             "option in deeply nested hosts/ file should trigger"
+        );
+    }
+
+    #[test]
+    fn test_option_nix_import_path_no_report() {
+        let rule = NoOptionInHosts::new();
+        let content = "_: {
+          imports = [
+            ./nixos-server-option.nix
+            ./ports-option.nix
+          ];
+        }";
+        let report = rule.validate_file(&make_path("hosts/bumblebee/nixos-server/default.nix"), content);
+        assert!(
+            report.is_none(),
+            "a *-option.nix import path should not be mistaken for an options.X declaration"
         );
     }
 }
