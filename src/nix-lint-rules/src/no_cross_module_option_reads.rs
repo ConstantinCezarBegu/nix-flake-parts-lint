@@ -91,7 +91,11 @@ impl FileLevelRule for NoCrossModuleOptionReads {
     }
 
     fn validate_file(&self, path: &Path, content: &str) -> Option<FileLevelReport> {
-        let options_re = Regex::new(r"\boptions\.([a-zA-Z_]\w*)").unwrap();
+        // Nix bare identifiers allow hyphens (e.g. `home-manager`), unlike
+        // regex's `\w`. Without `-` in the class, "config.home-manager..."
+        // truncates to "home" at the hyphen and never reaches the
+        // "home-manager" entry in BUILTIN_OPTIONS below.
+        let options_re = Regex::new(r"\boptions\.([a-zA-Z_][a-zA-Z0-9_-]*)").unwrap();
         let declared: Vec<&str> = options_re
             .captures_iter(content)
             .filter_map(|c| c.get(1))
@@ -105,16 +109,16 @@ impl FileLevelRule for NoCrossModuleOptionReads {
 
         // Match all config.X entry points where X is a namespace.
         // Matches config.<identifier> followed by non-identifier chars or end of string.
-        // Uses \b to match start-of-line and word boundaries.
-        // Checks that the char after the namespace is not an identifier continuation char
-        // (or we're at end of string) to avoid matching partial identifiers.
-        let config_read_re = Regex::new(r"\bconfig\.([a-zA-Z_]\w*?)\b").unwrap();
+        // Greedy + explicit character class (including '-') so the whole
+        // identifier is captured in one go; no trailing \b needed since \b's
+        // own word-boundary definition doesn't know about hyphens either.
+        let config_read_re = Regex::new(r"\bconfig\.([a-zA-Z_][a-zA-Z0-9_-]*)").unwrap();
         for cap in config_read_re.captures_iter(content) {
             let ns = cap.get(1)?.as_str();
             let match_end = cap.get(1).unwrap().end();
             let next_char = content[match_end..].chars().next();
             // Skip if the namespace continues (next char is a valid identifier char)
-            if next_char.is_some_and(|c| c.is_ascii_alphanumeric() || c == '_') {
+            if next_char.is_some_and(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-') {
                 continue;
             }
             if !declared_set.contains(ns) && !builtin_set.contains(ns) {
@@ -132,13 +136,13 @@ impl FileLevelRule for NoCrossModuleOptionReads {
         }
 
         // Check assertions: assert followed by config.X entry point.
-        let assert_config_re = Regex::new(r"assert\s+.*?\bconfig\.([a-zA-Z_]\w*?)\b").unwrap();
+        let assert_config_re = Regex::new(r"assert\s+.*?\bconfig\.([a-zA-Z_][a-zA-Z0-9_-]*)").unwrap();
         for cap in assert_config_re.captures_iter(content) {
             let ns = cap.get(1)?.as_str();
             let match_end = cap.get(1).unwrap().end();
             let next_char = content[match_end..].chars().next();
             // Skip if the namespace continues (next char is a valid identifier char)
-            if next_char.is_some_and(|c| c.is_ascii_alphanumeric() || c == '_') {
+            if next_char.is_some_and(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-') {
                 continue;
             }
             if !declared_set.contains(ns) && !builtin_set.contains(ns) {
@@ -241,6 +245,20 @@ mod tests {
         let content = r#"{ config, lib, ... }: {
           options.myService.foo.bar = lib.mkOption { type = lib.types.bool; };
           config.myService.foo.bar = config.myService.foo.baz;
+        }"#;
+        let report = rule.validate_file(&make_path("test.nix"), content);
+        assert!(report.is_none());
+    }
+
+    #[test]
+    fn test_builtin_hyphenated_home_manager_read_no_report() {
+        // Regression: "config.home-manager.users..." must resolve the full
+        // hyphenated identifier "home-manager" against BUILTIN_OPTIONS, not
+        // truncate at the hyphen to "home" (which isn't itself a builtin).
+        let rule = NoCrossModuleOptionReads::new();
+        let content = r#"{ config, lib, ... }: {
+          options.myService.foo = lib.mkOption { type = lib.types.bool; };
+          config.myService.bar = config.home-manager.users.someuser.home.foo;
         }"#;
         let report = rule.validate_file(&make_path("test.nix"), content);
         assert!(report.is_none());
