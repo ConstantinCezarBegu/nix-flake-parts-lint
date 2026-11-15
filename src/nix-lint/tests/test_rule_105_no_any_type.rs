@@ -20,7 +20,8 @@ fn anything_type_triggers() {
     description = "A test option";
   };
 }"#;
-    let reports = nix_lint_core::lint_file(&registry, src).unwrap();
+    let reports =
+        nix_lint_core::lint_file(&registry, std::path::Path::new("test.nix"), src).unwrap();
     assert!(!reports.is_empty());
     assert!(reports.iter().any(|r| r.code == 105));
 }
@@ -35,6 +36,7 @@ fn bool_type_no_trigger() {
     description = "A test option";
   };
 }"#;
-    let reports = nix_lint_core::lint_file(&registry, src).unwrap();
+    let reports =
+        nix_lint_core::lint_file(&registry, std::path::Path::new("test.nix"), src).unwrap();
     assert!(reports.is_empty());
 }

@@ -213,7 +213,8 @@ mod tests {
   config.user.hostname = "test";
   config.networking.hostName = "test";
 }"#;
-        let report = rule.validate_file(&make_path("hosts/bumblebee/networking-option.nix"), content);
+        let report =
+            rule.validate_file(&make_path("hosts/bumblebee/networking-option.nix"), content);
         assert!(
             report.is_none(),
             "non-default.nix should not be checked by this rule"
@@ -238,7 +239,10 @@ mod tests {
     ];
   };
 }"#;
-        let report = rule.validate_file(&make_path("development/nixvim/keymaps/default.nix"), content);
+        let report = rule.validate_file(
+            &make_path("development/nixvim/keymaps/default.nix"),
+            content,
+        );
         assert!(
             report.is_none(),
             "a nixvim keymap's options.silent field is not a module option/config assignment"

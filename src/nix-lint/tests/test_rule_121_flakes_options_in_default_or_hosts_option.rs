@@ -7,7 +7,9 @@ use nix_lint_core::LintRegistry;
 
 fn make_registry() -> LintRegistry {
     let mut registry = LintRegistry::new();
-    registry.register_file_level(Box::new(nix_lint_rules::FlakesOptionsInDefaultOrHostsOption::new()));
+    registry.register_file_level(Box::new(
+        nix_lint_rules::FlakesOptionsInDefaultOrHostsOption::new(),
+    ));
     registry
 }
 
@@ -30,10 +32,8 @@ fn hosts_option_nix_valid() {
     let src = r#"{ lib }: {
   options.myService.foo = lib.mkOption { type = lib.types.bool; };
 }"#;
-    let reports = registry.validate_file(
-        &std::path::PathBuf::from("hosts/myService-option.nix"),
-        src,
-    );
+    let reports =
+        registry.validate_file(&std::path::PathBuf::from("hosts/myService-option.nix"), src);
     assert!(reports.is_empty(), "hosts/*-option.nix should be valid");
 }
 
@@ -43,13 +43,14 @@ fn hosts_config_nix_invalid() {
     let src = r#"{ lib }: {
   options.myService.foo = lib.mkOption { type = lib.types.bool; };
 }"#;
-    let reports = registry.validate_file(
-        &std::path::PathBuf::from("hosts/config.nix"),
-        src,
-    );
+    let reports = registry.validate_file(&std::path::PathBuf::from("hosts/config.nix"), src);
     assert!(!reports.is_empty());
     assert!(reports.iter().any(|r| r.code == 121));
-    assert!(reports.iter().any(|r| r.message.contains("myService-option.nix")));
+    assert!(
+        reports
+            .iter()
+            .any(|r| r.message.contains("myService-option.nix"))
+    );
 }
 
 #[test]
@@ -58,10 +59,7 @@ fn git_nix_invalid() {
     let src = r#"{ lib }: {
   options.git.autocrlf = lib.mkOption { type = lib.types.str; };
 }"#;
-    let reports = registry.validate_file(
-        &std::path::PathBuf::from("hosts/git.nix"),
-        src,
-    );
+    let reports = registry.validate_file(&std::path::PathBuf::from("hosts/git.nix"), src);
     assert!(!reports.is_empty());
     assert!(reports.iter().any(|r| r.code == 121));
     assert!(reports.iter().any(|r| r.message.contains("git-option.nix")));
@@ -73,9 +71,6 @@ fn no_options_no_report() {
     let src = r#"{ pkgs }: {
   packages.myPackage = pkgs.hello;
 }"#;
-    let reports = registry.validate_file(
-        &std::path::PathBuf::from("default.nix"),
-        src,
-    );
+    let reports = registry.validate_file(&std::path::PathBuf::from("default.nix"), src);
     assert!(reports.is_empty());
 }

@@ -70,13 +70,16 @@ fn is_local_option(option: &str, content: &str) -> bool {
             // Look backwards from this line to find if we're inside a let { block
             let before = &content[..content.find(*line).unwrap_or(0)];
             // Check if it's a Nixvim keymap option (options.silent inside keymaps array)
-            if option == "silent" || option.starts_with("silent.") {
-                if before.contains("keymaps") || before.contains("programs.nixvim") {
-                    return true;
-                }
+            if (option == "silent" || option.starts_with("silent."))
+                && (before.contains("keymaps") || before.contains("programs.nixvim"))
+            {
+                return true;
             }
             // If preceded by "let" and not inside "config =", it's likely a local data structure
-            if before.contains("let") && !before.ends_with("config =") && !before.ends_with("config=") {
+            if before.contains("let")
+                && !before.ends_with("config =")
+                && !before.ends_with("config=")
+            {
                 // Check if it's inside a local data structure (before config =)
                 if before.find("config =").is_none() && before.find("config=").is_none() {
                     return true;
@@ -198,7 +201,10 @@ mod tests {
           config.nix.server.vpnHost = "test";
         }"#;
         let reports = validate(content);
-        assert!(reports.is_empty(), "nix.server.vpnHost should be considered used");
+        assert!(
+            reports.is_empty(),
+            "nix.server.vpnHost should be considered used"
+        );
     }
 
     #[test]
@@ -222,7 +228,10 @@ mod tests {
           packages.myPackage = pkgs.hello;
         }"#;
         let reports = validate(content);
-        assert!(reports.is_empty(), "should not report when no options defined");
+        assert!(
+            reports.is_empty(),
+            "should not report when no options defined"
+        );
     }
 
     #[test]
@@ -231,9 +240,15 @@ mod tests {
           options.wayland.sway.config.workspace-move-focus = lib.mkOption { type = lib.types.bool; };
         }"#;
         let reports = validate(content);
-        assert_eq!(reports.len(), 1, "deeply nested option should be considered unused");
+        assert_eq!(
+            reports.len(),
+            1,
+            "deeply nested option should be considered unused"
+        );
         assert!(
-            reports[0].message.contains("wayland.sway.config.workspace-move-focus"),
+            reports[0]
+                .message
+                .contains("wayland.sway.config.workspace-move-focus"),
             "Should mention the full option path"
         );
     }
@@ -244,7 +259,11 @@ mod tests {
           options.darwin.nix.server.vpnHost = lib.mkOption { type = lib.types.str; };
         }"#;
         let reports = validate(content);
-        assert_eq!(reports.len(), 1, "darwin.nix.server.vpnHost should be considered unused");
+        assert_eq!(
+            reports.len(),
+            1,
+            "darwin.nix.server.vpnHost should be considered unused"
+        );
         assert!(
             reports[0].message.contains("darwin.nix.server.vpnHost"),
             "Should mention the full option path"
@@ -290,6 +309,10 @@ mod tests {
         }"#;
         let reports = validate_files(&[("declare.nix", declaring), ("other.nix", other)]);
         assert_eq!(reports.len(), 1);
-        assert!(reports[0].message.contains("wayland.sway.controls.deadScript"));
+        assert!(
+            reports[0]
+                .message
+                .contains("wayland.sway.controls.deadScript")
+        );
     }
 }

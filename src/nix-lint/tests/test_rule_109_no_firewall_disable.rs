@@ -18,7 +18,8 @@ fn firewall_disabled_triggers() {
   options.foo = lib.mkOption { type = lib.types.bool; };
   config.networking.firewall.enable = false;
 }"#;
-    let reports = nix_lint_core::lint_file(&registry, src).unwrap();
+    let reports =
+        nix_lint_core::lint_file(&registry, std::path::Path::new("test.nix"), src).unwrap();
     assert!(!reports.is_empty());
     assert!(reports.iter().any(|r| r.code == 109));
 }
@@ -31,6 +32,7 @@ fn firewall_enabled_no_trigger() {
   options.foo = lib.mkOption { type = lib.types.bool; };
   config.networking.firewall.enable = true;
 }"#;
-    let reports = nix_lint_core::lint_file(&registry, src).unwrap();
+    let reports =
+        nix_lint_core::lint_file(&registry, std::path::Path::new("test.nix"), src).unwrap();
     assert!(reports.is_empty());
 }

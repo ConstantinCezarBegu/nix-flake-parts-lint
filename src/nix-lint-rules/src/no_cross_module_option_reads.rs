@@ -4,63 +4,7 @@ use std::path::Path;
 use nix_lint_core::{FileLevelReport, FileLevelRule, Severity};
 use regex::Regex;
 
-static BUILTIN_OPTIONS: &[&str] = &[
-    // flake-parts built-in outputs
-    "flake",
-    "perSystem",
-    // nixpkgs system options
-    "system",
-    // nixpkgs core options
-    "nix",
-    "nixpkgs",
-    "environment",
-    // nixpkgs user/account options
-    "users",
-    "groups",
-    // nixpkgs boot options
-    "boot",
-    // nixpkgs networking options
-    "networking",
-    // nixpkgs security options
-    "security",
-    // nixpkgs hardware options
-    "hardware",
-    // nixpkgs localization options
-    "i18n",
-    "locale",
-    // nixpkgs time options
-    "time",
-    // nixpkgs service options
-    "services",
-    // nixpkgs virtualization options
-    "virtualisation",
-    "containers",
-    // nixpkgs program options
-    "programs",
-    // nixpkgs documentation options
-    "documentation",
-    // nixpkgs font options
-    "fonts",
-    // nixpkgs XDG options
-    "xdg",
-    // common file path config names (xdg.configFile.".../config.json")
-    "json",
-    // nixpkgs power management options
-    "powerManagement",
-    // nixpkgs sound options
-    "sound",
-    // nix-darwin options
-    "darwin",
-    // home-manager options
-    "home-manager",
-    // nixos-generators options
-    "nixosConfigurations",
-    // nixosModules / darwinModules
-    "nixosModules",
-    "darwinModules",
-    "homeManagerModules",
-    "homeModules",
-];
+use crate::builtin_namespaces::{BUILTIN_OPTIONS, in_file_name};
 
 pub struct NoCrossModuleOptionReads;
 
@@ -115,6 +59,9 @@ impl FileLevelRule for NoCrossModuleOptionReads {
         let config_read_re = Regex::new(r"\bconfig\.([a-zA-Z_][a-zA-Z0-9_-]*)").unwrap();
         for cap in config_read_re.captures_iter(content) {
             let ns = cap.get(1)?.as_str();
+            if in_file_name(content, cap.get(0)?.start()) {
+                continue;
+            }
             let match_end = cap.get(1).unwrap().end();
             let next_char = content[match_end..].chars().next();
             // Skip if the namespace continues (next char is a valid identifier char)
@@ -136,7 +83,8 @@ impl FileLevelRule for NoCrossModuleOptionReads {
         }
 
         // Check assertions: assert followed by config.X entry point.
-        let assert_config_re = Regex::new(r"assert\s+.*?\bconfig\.([a-zA-Z_][a-zA-Z0-9_-]*)").unwrap();
+        let assert_config_re =
+            Regex::new(r"assert\s+.*?\bconfig\.([a-zA-Z_][a-zA-Z0-9_-]*)").unwrap();
         for cap in assert_config_re.captures_iter(content) {
             let ns = cap.get(1)?.as_str();
             let match_end = cap.get(1).unwrap().end();
@@ -487,5 +435,35 @@ config.myService.bar = config.services.nginx.enable;
         let report = rule.validate_file(&make_path("test.nix"), content);
         assert!(report.is_some());
         assert!(report.unwrap().message.contains("otherService"));
+    }
+
+    #[test]
+    fn test_config_inside_file_name_no_report() {
+        // "config.yaml" here is part of a file name in a string, not the
+        // config.yaml namespace.
+        let rule = NoCrossModuleOptionReads::new();
+        let content = r#"{ config, lib, ... }: {
+          options.myService.port = lib.mkOption { type = lib.types.port; };
+          config.xdg.configFile."my-app/config.yaml".text = "port: ${toString config.myService.port}";
+        }"#;
+        assert!(
+            rule.validate_file(&make_path("test.nix"), content)
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn test_module_system_lib_namespace_no_report() {
+        // config.lib is the module system's own option (NixOS and
+        // home-manager), where e.g. Stylix puts its colors.
+        let rule = NoCrossModuleOptionReads::new();
+        let content = r#"{ config, lib, ... }: {
+          options.myService.theme = lib.mkOption { type = lib.types.str; };
+          config.myService.theme = config.lib.stylix.colors.base00;
+        }"#;
+        assert!(
+            rule.validate_file(&make_path("test.nix"), content)
+                .is_none()
+        );
     }
 }

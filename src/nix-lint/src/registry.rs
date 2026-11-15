@@ -28,7 +28,9 @@ pub fn build_registry() -> LintRegistry {
     registry.register_file_level(Box::new(nix_lint_rules::NoCrossNamespaceWrites::new()));
     registry.register_file_level(Box::new(nix_lint_rules::NoCrossModuleOptionReads::new()));
     registry.register_file_level(Box::new(nix_lint_rules::ModuleImports::new()));
-    registry.register_file_level(Box::new(nix_lint_rules::FlakesOptionsInDefaultOrHostsOption::new()));
+    registry.register_file_level(Box::new(
+        nix_lint_rules::FlakesOptionsInDefaultOrHostsOption::new(),
+    ));
     registry.register_file_level(Box::new(nix_lint_rules::SecretsInHostsOnly::new()));
     registry.register_file_level(Box::new(nix_lint_rules::OptionNixRestrictedToHosts::new()));
     registry.register_file_level(Box::new(nix_lint_rules::NoOptionInHosts::new()));

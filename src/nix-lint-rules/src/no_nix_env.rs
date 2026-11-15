@@ -22,7 +22,12 @@ impl Default for NoNixEnv {
 }
 
 impl NoNixEnv {
-    fn check(&self, node: &SyntaxElement, _file_path: &std::path::Path, _src: &str) -> Option<Report> {
+    fn check(
+        &self,
+        node: &SyntaxElement,
+        _file_path: &std::path::Path,
+        _src: &str,
+    ) -> Option<Report> {
         if let SyntaxElement::Node(node) = node
             && let Some(_s) = Str::cast(node.clone())
         {
@@ -65,7 +70,9 @@ mod tests {
     #[test]
     fn test_nix_env_install_triggers() {
         let src = r#""nix-env -i nixpkgs.hello""#;
-        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
+        let reports =
+            nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src)
+                .unwrap();
         assert!(!reports.is_empty());
         assert_eq!(reports[0].code, 107);
     }
@@ -73,7 +80,9 @@ mod tests {
     #[test]
     fn test_nix_env_uninstall_triggers() {
         let src = r#""nix-env -e mypackage""#;
-        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
+        let reports =
+            nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src)
+                .unwrap();
         assert!(!reports.is_empty());
         assert_eq!(reports[0].code, 107);
     }
@@ -81,7 +90,9 @@ mod tests {
     #[test]
     fn test_nix_env_query_triggers() {
         let src = r#""nix-env -q""#;
-        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
+        let reports =
+            nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src)
+                .unwrap();
         assert!(!reports.is_empty());
         assert_eq!(reports[0].code, 107);
     }
@@ -89,7 +100,9 @@ mod tests {
     #[test]
     fn test_nix_env_upgrade_triggers() {
         let src = r#""nix-env -U https://example.com/nix-cache""#;
-        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
+        let reports =
+            nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src)
+                .unwrap();
         assert!(!reports.is_empty());
         assert_eq!(reports[0].code, 107);
     }
@@ -97,21 +110,27 @@ mod tests {
     #[test]
     fn test_normal_string_no_trigger() {
         let src = r#""just a string""#;
-        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
+        let reports =
+            nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src)
+                .unwrap();
         assert!(reports.is_empty());
     }
 
     #[test]
     fn test_nix_shell_no_trigger() {
         let src = r#""nix-shell -p hello""#;
-        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
+        let reports =
+            nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src)
+                .unwrap();
         assert!(reports.is_empty());
     }
 
     #[test]
     fn test_nix_run_no_trigger() {
         let src = r#""nix run nixpkgs#hello""#;
-        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
+        let reports =
+            nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src)
+                .unwrap();
         assert!(reports.is_empty());
     }
 
@@ -121,14 +140,18 @@ mod tests {
           # This is not nix-env -i
           foo = "bar";
         }"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
+        let reports =
+            nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src)
+                .unwrap();
         assert!(reports.is_empty());
     }
 
     #[test]
     fn test_nix_env_build_expr_no_trigger() {
         let src = r#""/nix/store/xxx-nix-env-2.18.0""#;
-        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
+        let reports =
+            nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src)
+                .unwrap();
         assert!(reports.is_empty());
     }
 }

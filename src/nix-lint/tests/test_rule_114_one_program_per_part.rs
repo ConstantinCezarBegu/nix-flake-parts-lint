@@ -17,10 +17,7 @@ fn multiple_modules_triggers() {
   flake.modules.myModule.config = { lib, ... }: {};
   flake.modules.otherModule.options = { lib, ... }: {};
 }"#;
-    let reports = registry.validate_file(
-        &std::path::PathBuf::from("flake.nix"),
-        src,
-    );
+    let reports = registry.validate_file(&std::path::PathBuf::from("flake.nix"), src);
     assert!(!reports.is_empty());
     assert!(reports.iter().any(|r| r.code == 114));
 }
@@ -31,9 +28,6 @@ fn single_module_no_trigger() {
     let src = r#"{ lib, ... }: {
   flake.modules.myModule.config = { lib, ... }: {};
 }"#;
-    let reports = registry.validate_file(
-        &std::path::PathBuf::from("flake.nix"),
-        src,
-    );
+    let reports = registry.validate_file(&std::path::PathBuf::from("flake.nix"), src);
     assert!(reports.is_empty());
 }

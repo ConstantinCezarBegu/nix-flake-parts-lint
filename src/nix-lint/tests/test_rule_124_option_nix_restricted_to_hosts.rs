@@ -13,11 +13,12 @@ fn make_registry() -> LintRegistry {
 #[test]
 fn option_nix_in_hosts_ok() {
     let registry = make_registry();
-    let reports = registry.validate_file(
-        &std::path::PathBuf::from("hosts/myService-option.nix"),
-        "",
+    let reports =
+        registry.validate_file(&std::path::PathBuf::from("hosts/myService-option.nix"), "");
+    assert!(
+        reports.is_empty(),
+        "hosts/myService-option.nix should be valid"
     );
-    assert!(reports.is_empty(), "hosts/myService-option.nix should be valid");
 }
 
 #[test]
@@ -35,10 +36,7 @@ fn option_nix_outside_hosts_report() {
 #[test]
 fn non_option_file_no_report() {
     let registry = make_registry();
-    let reports = registry.validate_file(
-        &std::path::PathBuf::from("services/default.nix"),
-        "",
-    );
+    let reports = registry.validate_file(&std::path::PathBuf::from("services/default.nix"), "");
     assert!(reports.is_empty());
 }
 
@@ -49,5 +47,8 @@ fn deeply_nested_in_hosts_ok() {
         &std::path::PathBuf::from("hosts/wayland/sway/sway-option.nix"),
         "",
     );
-    assert!(reports.is_empty(), "deeply nested option file in hosts/ should be valid");
+    assert!(
+        reports.is_empty(),
+        "deeply nested option file in hosts/ should be valid"
+    );
 }

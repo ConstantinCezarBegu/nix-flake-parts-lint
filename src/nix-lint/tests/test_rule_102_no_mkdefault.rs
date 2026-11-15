@@ -11,35 +11,38 @@ fn make_registry() -> LintRegistry {
 }
 
 #[test]
-fn mkDefault_triggers() {
+fn mk_default_triggers() {
     let registry = make_registry();
     let src = r#"{ lib, ... }:
 {
   options.foo = lib.mkOption { type = lib.types.bool; };
   config.foo = lib.mkDefault true;
 }"#;
-    let reports = nix_lint_core::lint_file(&registry, src).unwrap();
+    let reports =
+        nix_lint_core::lint_file(&registry, std::path::Path::new("test.nix"), src).unwrap();
     assert!(!reports.is_empty());
     assert!(reports.iter().any(|r| r.code == 102));
 }
 
 #[test]
-fn mkOverride_no_trigger() {
+fn mk_override_no_trigger() {
     let registry = make_registry();
     let src = r#"{ lib, ... }:
 {
   options.foo = lib.mkOption { type = lib.types.bool; };
   config.foo = lib.mkOverride 500 true;
 }"#;
-    let reports = nix_lint_core::lint_file(&registry, src).unwrap();
+    let reports =
+        nix_lint_core::lint_file(&registry, std::path::Path::new("test.nix"), src).unwrap();
     assert!(reports.is_empty());
 }
 
 #[test]
-fn lib_mkDefault_triggers() {
+fn lib_mk_default_triggers() {
     let registry = make_registry();
     let src = r#"lib.mkDefault "value""#;
-    let reports = nix_lint_core::lint_file(&registry, src).unwrap();
+    let reports =
+        nix_lint_core::lint_file(&registry, std::path::Path::new("test.nix"), src).unwrap();
     assert!(!reports.is_empty());
     assert_eq!(reports[0].code, 102);
 }

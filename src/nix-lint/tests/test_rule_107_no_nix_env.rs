@@ -22,7 +22,8 @@ fn nix_env_in_string_triggers() {
     '';
   };
 }"#;
-    let reports = nix_lint_core::lint_file(&registry, src).unwrap();
+    let reports =
+        nix_lint_core::lint_file(&registry, std::path::Path::new("test.nix"), src).unwrap();
     assert!(!reports.is_empty());
     assert!(reports.iter().any(|r| r.code == 107));
 }
@@ -35,6 +36,7 @@ fn no_nix_env_no_trigger() {
   options.foo = lib.mkOption { type = lib.types.bool; };
   config.foo = pkgs.hello;
 }"#;
-    let reports = nix_lint_core::lint_file(&registry, src).unwrap();
+    let reports =
+        nix_lint_core::lint_file(&registry, std::path::Path::new("test.nix"), src).unwrap();
     assert!(reports.is_empty());
 }

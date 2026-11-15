@@ -22,7 +22,12 @@ impl Default for NoWithPkgsLib {
 }
 
 impl NoWithPkgsLib {
-    fn check(&self, node: &SyntaxElement, _file_path: &std::path::Path, _src: &str) -> Option<Report> {
+    fn check(
+        &self,
+        node: &SyntaxElement,
+        _file_path: &std::path::Path,
+        _src: &str,
+    ) -> Option<Report> {
         if let SyntaxElement::Node(node) = node
             && let Some(with_expr) = With::cast(node.clone())
             && let Some(namespace) = with_expr.namespace()
@@ -55,7 +60,9 @@ mod tests {
         let src = r#"with pkgs; {
           foo = bar;
         }"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
+        let reports =
+            nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src)
+                .unwrap();
         assert!(!reports.is_empty());
         assert_eq!(reports[0].code, 101);
     }
@@ -65,7 +72,9 @@ mod tests {
         let src = r#"with lib; {
           foo = bar;
         }"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
+        let reports =
+            nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src)
+                .unwrap();
         assert!(!reports.is_empty());
         assert_eq!(reports[0].code, 101);
     }
@@ -75,7 +84,9 @@ mod tests {
         let src = r#"with myPkgs; {
           foo = bar;
         }"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
+        let reports =
+            nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src)
+                .unwrap();
         assert!(reports.is_empty());
     }
 
@@ -84,14 +95,18 @@ mod tests {
         let src = r#"{
           foo = import ./foo.nix;
         }"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
+        let reports =
+            nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src)
+                .unwrap();
         assert!(reports.is_empty());
     }
 
     #[test]
     fn test_with_pkgs_in_let_triggers() {
         let src = r#"{ foo = let x = with pkgs; hello; in x; }"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
+        let reports =
+            nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src)
+                .unwrap();
         assert!(!reports.is_empty());
         assert_eq!(reports[0].code, 101);
     }
@@ -101,7 +116,9 @@ mod tests {
         let src = r#"{ lib, ... }: let
           x = with lib; concatStringsSep "," ["a" "b"];
         in { }"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
+        let reports =
+            nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src)
+                .unwrap();
         assert!(!reports.is_empty());
         assert_eq!(reports[0].code, 101);
     }
@@ -111,7 +128,9 @@ mod tests {
         let src = r#"with nixpkgs; {
           foo = bar;
         }"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
+        let reports =
+            nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src)
+                .unwrap();
         assert!(reports.is_empty());
     }
 
@@ -120,7 +139,9 @@ mod tests {
         let src = r#"with nixpkgs.lib; {
           foo = bar;
         }"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
+        let reports =
+            nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src)
+                .unwrap();
         assert!(reports.is_empty());
     }
 }

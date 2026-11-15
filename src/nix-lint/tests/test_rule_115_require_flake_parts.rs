@@ -20,10 +20,7 @@ fn orphan_file_triggers() {
     description = "A test option";
   };
 }"#;
-    let reports = registry.validate_file(
-        &std::path::PathBuf::from("orphan.nix"),
-        src,
-    );
+    let reports = registry.validate_file(&std::path::PathBuf::from("orphan.nix"), src);
     assert!(!reports.is_empty());
     assert!(reports.iter().any(|r| r.code == 115));
 }
@@ -38,9 +35,7 @@ fn hosts_path_no_trigger() {
     description = "A test option";
   };
 }"#;
-    let reports = registry.validate_file(
-        &std::path::PathBuf::from("/tmp/test/hosts/myhost.nix"),
-        src,
-    );
+    let reports =
+        registry.validate_file(&std::path::PathBuf::from("/tmp/test/hosts/myhost.nix"), src);
     assert!(reports.is_empty());
 }

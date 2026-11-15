@@ -5,32 +5,13 @@
 
 use nix_lint_core::{LintRegistry, Severity};
 
+// The binary's own registry, not a copy of it: a hand-kept list drifted
+// (rules added since were missing here) and tested a different linter.
+#[path = "../src/registry.rs"]
+mod registry;
+
 fn make_full_registry() -> LintRegistry {
-    let mut registry = LintRegistry::new();
-
-    registry.register(Box::new(nix_lint_rules::NoRec::new()));
-    registry.register(Box::new(nix_lint_rules::NoWithPkgsLib::new()));
-    registry.register(Box::new(nix_lint_rules::NoMkDefault::new()));
-    registry.register(Box::new(nix_lint_rules::NoMkForce::new()));
-    registry.register(Box::new(nix_lint_rules::NoMkIfTrue::new()));
-    registry.register(Box::new(nix_lint_rules::NoAnyType::new()));
-    registry.register(Box::new(nix_lint_rules::NoLookupPath::new()));
-    registry.register(Box::new(nix_lint_rules::NoNixEnv::new()));
-    registry.register(Box::new(nix_lint_rules::NoOptional::new()));
-    registry.register(Box::new(nix_lint_rules::NoFirewallDisable::new()));
-    registry.register(Box::new(nix_lint_rules::NoBuiltinReadfileSecrets::new()));
-    registry.register(Box::new(nix_lint_rules::NoMissingDescription::new()));
-    registry.register(Box::new(nix_lint_rules::NoSecrets::new()));
-    registry.register(Box::new(nix_lint_rules::NoDefaults::new()));
-    registry.register(Box::new(nix_lint_rules::BoolEqualsTrue::new()));
-    registry.register_file_level(Box::new(nix_lint_rules::OneProgramPerPart::new()));
-    registry.register_file_level(Box::new(nix_lint_rules::RequireFlakeParts::new()));
-    registry.register_file_level(Box::new(nix_lint_rules::NoCrossNamespaceWrites::new()));
-    registry.register_file_level(Box::new(nix_lint_rules::NoCrossModuleOptionReads::new()));
-    registry.register_file_level(Box::new(nix_lint_rules::FlakesOptionsInDefaultOrHostsOption::new()));
-    registry.register_file_level(Box::new(nix_lint_rules::OptionNixRestrictedToHosts::new()));
-
-    registry
+    registry::build_registry()
 }
 
 #[test]
@@ -40,7 +21,8 @@ fn lint_rec_attrset_returns_violation() {
   foo = bar;
   bar = 42;
 }"#;
-    let reports = nix_lint_core::lint_file(&registry, src).unwrap();
+    let reports =
+        nix_lint_core::lint_file(&registry, std::path::Path::new("test.nix"), src).unwrap();
     assert!(!reports.is_empty());
     assert!(reports.iter().any(|r| r.code == 100));
 }
@@ -56,7 +38,8 @@ fn lint_clean_file_returns_no_violations() {
 
   config.myOption = false;
 }"#;
-    let reports = nix_lint_core::lint_file(&registry, src).unwrap();
+    let reports =
+        nix_lint_core::lint_file(&registry, std::path::Path::new("test.nix"), src).unwrap();
     assert!(reports.is_empty());
 }
 
@@ -72,7 +55,8 @@ in {
     type = lib.types.bool;
   };
 }"#;
-    let reports = nix_lint_core::lint_file(&registry, src).unwrap();
+    let reports =
+        nix_lint_core::lint_file(&registry, std::path::Path::new("test.nix"), src).unwrap();
     assert!(!reports.is_empty());
     assert!(reports.iter().any(|r| r.code == 101));
 }
@@ -81,7 +65,11 @@ in {
 fn lint_list_shows_all_rules() {
     let registry = make_full_registry();
     let all_rules: Vec<_> = registry.lints().iter().map(|l| l.name()).collect();
-    let file_rules: Vec<_> = registry.file_level_rules().iter().map(|r| r.name()).collect();
+    let file_rules: Vec<_> = registry
+        .file_level_rules()
+        .iter()
+        .map(|r| r.name())
+        .collect();
 
     assert!(!all_rules.is_empty(), "Should have AST-based lint rules");
     assert!(!file_rules.is_empty(), "Should have file-level rules");
@@ -101,7 +89,17 @@ fn lint_explain_provides_details() {
 #[test]
 fn lint_all_severity_levels_present() {
     let registry = make_full_registry();
-    let file_severities: Vec<_> = registry.file_level_rules().iter().map(|r| r.severity()).collect();
-    assert!(file_severities.contains(&Severity::Warn), "File-level rules should have Warn");
-    assert!(file_severities.contains(&Severity::Error), "File-level rules should have Error");
+    let file_severities: Vec<_> = registry
+        .file_level_rules()
+        .iter()
+        .map(|r| r.severity())
+        .collect();
+    assert!(
+        file_severities.contains(&Severity::Warn),
+        "File-level rules should have Warn"
+    );
+    assert!(
+        file_severities.contains(&Severity::Error),
+        "File-level rules should have Error"
+    );
 }

@@ -1,5 +1,12 @@
 # Clean flake-parts module - should not trigger any cross-namespace issues
-{ config, lib, self', inputs', pkgs, ... }:
+{
+  config,
+  lib,
+  self',
+  inputs',
+  pkgs,
+  ...
+}:
 
 {
   options.myService.enable = lib.mkOption {

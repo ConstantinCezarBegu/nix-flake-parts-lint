@@ -10,7 +10,10 @@ rustPlatform.buildRustPackage {
   src = lib.cleanSource ./.;
   cargoLock.lockFile = ./Cargo.lock;
 
-  nativeBuildInputs = [ installShellFiles pkg-config ];
+  nativeBuildInputs = [
+    installShellFiles
+    pkg-config
+  ];
 
   postInstall = ''
     installShellCompletion --cmd nix-lint --bash <($out/bin/nix-lint generate-completion bash)

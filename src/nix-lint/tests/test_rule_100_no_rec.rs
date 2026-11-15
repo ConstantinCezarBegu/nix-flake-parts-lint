@@ -17,7 +17,8 @@ fn rec_attrset_triggers() {
       foo = bar;
       bar = 42;
     }"#;
-    let reports = nix_lint_core::lint_file(&registry, src).unwrap();
+    let reports =
+        nix_lint_core::lint_file(&registry, std::path::Path::new("test.nix"), src).unwrap();
     assert_eq!(reports.len(), 1);
     assert_eq!(reports[0].code, 100);
 }
@@ -29,7 +30,8 @@ fn normal_attrset_no_trigger() {
       foo = bar;
       bar = 42;
     }"#;
-    let reports = nix_lint_core::lint_file(&registry, src).unwrap();
+    let reports =
+        nix_lint_core::lint_file(&registry, std::path::Path::new("test.nix"), src).unwrap();
     assert!(reports.is_empty());
 }
 
@@ -41,7 +43,8 @@ fn rec_nested_in_attrset_triggers() {
         bar = 42;
       };
     }"#;
-    let reports = nix_lint_core::lint_file(&registry, src).unwrap();
+    let reports =
+        nix_lint_core::lint_file(&registry, std::path::Path::new("test.nix"), src).unwrap();
     assert!(!reports.is_empty());
     assert_eq!(reports[0].code, 100);
 }

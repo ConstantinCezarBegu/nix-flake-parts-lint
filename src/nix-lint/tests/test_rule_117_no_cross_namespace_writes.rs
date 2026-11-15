@@ -21,10 +21,7 @@ fn cross_namespace_write_triggers() {
   };
   config.myOtherService.enabled = true;
 }"#;
-    let reports = registry.validate_file(
-        &std::path::PathBuf::from("flake/modules/test.nix"),
-        src,
-    );
+    let reports = registry.validate_file(&std::path::PathBuf::from("flake/modules/test.nix"), src);
     assert!(!reports.is_empty());
     assert!(reports.iter().any(|r| r.code == 117));
 }
@@ -36,10 +33,7 @@ fn same_namespace_no_trigger() {
   options.myService.foo = lib.mkOption { type = lib.types.bool; };
   config.myService.foo = true;
 }"#;
-    let reports = registry.validate_file(
-        &std::path::PathBuf::from("test.nix"),
-        src,
-    );
+    let reports = registry.validate_file(&std::path::PathBuf::from("test.nix"), src);
     assert!(reports.is_empty());
 }
 
@@ -50,9 +44,6 @@ fn builtin_service_no_trigger() {
   options.myService.foo = lib.mkOption { type = lib.types.bool; };
   config.services.nginx.enable = true;
 }"#;
-    let reports = registry.validate_file(
-        &std::path::PathBuf::from("test.nix"),
-        src,
-    );
+    let reports = registry.validate_file(&std::path::PathBuf::from("test.nix"), src);
     assert!(reports.is_empty());
 }

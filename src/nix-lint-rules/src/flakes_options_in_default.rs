@@ -21,7 +21,10 @@ impl Default for FlakesOptionsInDefaultOrHostsOption {
 /// Looks for `key = ` patterns at the top level of the block (indented once).
 fn extract_top_level_ns(content: &str, keyword: &str) -> Vec<String> {
     let block_re = Regex::new(&format!(r"\b{}\s*=\s*\{{", regex::escape(keyword))).unwrap();
-    let ns_re = Regex::new(r"(?m)^\s*([a-zA-Z_][a-zA-Z0-9_\-]*(?:\.[a-zA-Z_][a-zA-Z0-9_\-]*)*)\s*(?:=|=\s*\{)").unwrap();
+    let ns_re = Regex::new(
+        r"(?m)^\s*([a-zA-Z_][a-zA-Z0-9_\-]*(?:\.[a-zA-Z_][a-zA-Z0-9_\-]*)*)\s*(?:=|=\s*\{)",
+    )
+    .unwrap();
 
     let mut result = Vec::new();
     for m in block_re.find_iter(content) {
@@ -51,12 +54,18 @@ fn extract_top_level_ns(content: &str, keyword: &str) -> Vec<String> {
                 // For `programs` use the second segment (e.g. programs.ssh → ssh);
                 // for everything else use the first segment (e.g. config.user → user).
                 let ns = if segments.first() == Some(&"programs") {
-                    segments.get(1).map(|s| *s).unwrap_or(full_key)
+                    segments.get(1).copied().unwrap_or(full_key)
                 } else {
-                    segments.first().map(|s| *s).unwrap_or(full_key)
+                    segments.first().copied().unwrap_or(full_key)
                 };
                 // Skip nixpkgs and other special keys that are expected to group multiple things
-                if ns == "nixpkgs" || ns == "home-manager" || ns == "imports" || ns == "allowUnfree" || ns == "android_sdk" || ns == "overlays" {
+                if ns == "nixpkgs"
+                    || ns == "home-manager"
+                    || ns == "imports"
+                    || ns == "allowUnfree"
+                    || ns == "android_sdk"
+                    || ns == "overlays"
+                {
                     continue;
                 }
                 result.push(ns.to_string());
@@ -132,21 +141,30 @@ impl FileLevelRule for FlakesOptionsInDefaultOrHostsOption {
         }
 
         // Fallback: match config.X or options.X direct patterns
-        let config_re = Regex::new(r"\b(config|options)\.([a-zA-Z_][a-zA-Z0-9_\-]*(?:\.[a-zA-Z_][a-zA-Z0-9_\-]*)*)\s*=").unwrap();
+        let config_re = Regex::new(
+            r"\b(config|options)\.([a-zA-Z_][a-zA-Z0-9_\-]*(?:\.[a-zA-Z_][a-zA-Z0-9_\-]*)*)\s*=",
+        )
+        .unwrap();
         if !config_re.is_match(content) {
             return None;
         }
 
         for cap in config_re.captures_iter(content) {
-                let full_match = cap.get(2)?.as_str();
-                let segments: Vec<&str> = full_match.split('.').collect();
-                let ns = if segments.first() == Some(&"programs") {
-                    segments.get(1).map(|s| *s).unwrap_or(full_match)
-                } else {
-                    segments.first().map(|s| *s).unwrap_or(full_match)
-                };
+            let full_match = cap.get(2)?.as_str();
+            let segments: Vec<&str> = full_match.split('.').collect();
+            let ns = if segments.first() == Some(&"programs") {
+                segments.get(1).copied().unwrap_or(full_match)
+            } else {
+                segments.first().copied().unwrap_or(full_match)
+            };
             // Skip special keys
-            if ns == "nixpkgs" || ns == "home-manager" || ns == "imports" || ns == "allowUnfree" || ns == "android_sdk" || ns == "overlays" {
+            if ns == "nixpkgs"
+                || ns == "home-manager"
+                || ns == "imports"
+                || ns == "allowUnfree"
+                || ns == "android_sdk"
+                || ns == "overlays"
+            {
                 continue;
             }
             let qualifier = cap.get(1)?.as_str();
@@ -199,11 +217,11 @@ mod tests {
         let content = r#"{ lib }: {
           options.wayland.sway = lib.mkOption { type = lib.types.bool; };
         }"#;
-        let report = rule.validate_file(
-            &make_path("wayland/sway/controls/default.nix"),
-            content,
+        let report = rule.validate_file(&make_path("wayland/sway/controls/default.nix"), content);
+        assert!(
+            report.is_none(),
+            "deeply nested default.nix should be valid"
         );
-        assert!(report.is_none(), "deeply nested default.nix should be valid");
     }
 
     #[test]
@@ -274,7 +292,10 @@ mod tests {
           config.myService.foo = true;
         }"#;
         let report = rule.validate_file(&make_path("hosts/config.nix"), content);
-        assert!(report.is_some(), "hosts/config.nix should flag config.myService");
+        assert!(
+            report.is_some(),
+            "hosts/config.nix should flag config.myService"
+        );
         assert!(
             report.unwrap().message.contains("myService-option.nix"),
             "Should suggest myService-option.nix"
@@ -311,10 +332,7 @@ mod tests {
         let content = r#"{ lib }: {
           options.secretspecToml = lib.mkOption { type = lib.types.path; };
         }"#;
-        let report = rule.validate_file(
-            &make_path("hosts/secrets/server/default.nix"),
-            content,
-        );
+        let report = rule.validate_file(&make_path("hosts/secrets/server/default.nix"), content);
         assert!(
             report.is_none(),
             "hosts/secrets/server/default.nix should be valid"
@@ -331,7 +349,10 @@ mod tests {
             &make_path("hosts/wayland/sway/controls/svalboard/workspace-move-focus.nix"),
             content,
         );
-        assert!(report.is_some(), "workspace-move-focus.nix should be invalid");
+        assert!(
+            report.is_some(),
+            "workspace-move-focus.nix should be invalid"
+        );
         assert!(
             report.unwrap().message.contains("wayland-option.nix"),
             "Should suggest wayland-option.nix (first segment)"
@@ -380,7 +401,10 @@ mod tests {
           };
         }"#;
         let report = rule.validate_file(&make_path("hosts/wayland-option.nix"), content);
-        assert!(report.is_none(), "wayland-option.nix with single namespace should be valid");
+        assert!(
+            report.is_none(),
+            "wayland-option.nix with single namespace should be valid"
+        );
     }
 
     #[test]
@@ -394,7 +418,10 @@ mod tests {
           };
         }"#;
         let report = rule.validate_file(&make_path("hosts/config.nix"), content);
-        assert!(report.is_some(), "config.nix should flag multiple namespaces");
+        assert!(
+            report.is_some(),
+            "config.nix should flag multiple namespaces"
+        );
         let msg = report.unwrap().message;
         assert!(
             msg.contains("user, networking"),

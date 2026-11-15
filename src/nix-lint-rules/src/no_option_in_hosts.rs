@@ -51,7 +51,10 @@ impl FileLevelRule for NoOptionInHosts {
             let ns = cap.get(1)?.as_str();
 
             // Skip flake-parts built-in options
-            if matches!(ns, "flake" | "perSystem" | "system" | "nixpkgs" | "inputs" | "outputs") {
+            if matches!(
+                ns,
+                "flake" | "perSystem" | "system" | "nixpkgs" | "inputs" | "outputs"
+            ) {
                 continue;
             }
 
@@ -92,7 +95,10 @@ mod tests {
           config.myService.enabled = true;
         }";
         let report = rule.validate_file(&make_path("hosts/rewind/default.nix"), content);
-        assert!(report.is_some(), "option.myService in hosts/ should trigger");
+        assert!(
+            report.is_some(),
+            "option.myService in hosts/ should trigger"
+        );
         assert!(report.unwrap().message.contains("myService"));
     }
 
@@ -104,7 +110,10 @@ mod tests {
           config.networking.hostName = \"rewind\";
         }";
         let report = rule.validate_file(&make_path("hosts/rewind/default.nix"), content);
-        assert!(report.is_some(), "options.networking in hosts/ should trigger");
+        assert!(
+            report.is_some(),
+            "options.networking in hosts/ should trigger"
+        );
         assert!(report.unwrap().message.contains("networking"));
     }
 
@@ -172,7 +181,10 @@ mod tests {
             ./ports-option.nix
           ];
         }";
-        let report = rule.validate_file(&make_path("hosts/bumblebee/nixos-server/default.nix"), content);
+        let report = rule.validate_file(
+            &make_path("hosts/bumblebee/nixos-server/default.nix"),
+            content,
+        );
         assert!(
             report.is_none(),
             "a *-option.nix import path should not be mistaken for an options.X declaration"

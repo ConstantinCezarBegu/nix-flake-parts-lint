@@ -21,7 +21,8 @@ fn mkoption_with_default_triggers() {
     description = "A test option";
   };
 }"#;
-    let reports = nix_lint_core::lint_file(&registry, src).unwrap();
+    let reports =
+        nix_lint_core::lint_file(&registry, std::path::Path::new("test.nix"), src).unwrap();
     assert!(!reports.is_empty());
     assert!(reports.iter().any(|r| r.code == 113));
 }
@@ -32,7 +33,8 @@ fn sources_default_no_trigger() {
     let src = r#"{
       sources.default = [ pkgs.nixvim ];
     }"#;
-    let reports = nix_lint_core::lint_file(&registry, src).unwrap();
+    let reports =
+        nix_lint_core::lint_file(&registry, std::path::Path::new("test.nix"), src).unwrap();
     assert!(reports.is_empty());
 }
 
@@ -42,6 +44,7 @@ fn attrset_no_default_no_trigger() {
     let src = r#"{
       foo = "bar";
     }"#;
-    let reports = nix_lint_core::lint_file(&registry, src).unwrap();
+    let reports =
+        nix_lint_core::lint_file(&registry, std::path::Path::new("test.nix"), src).unwrap();
     assert!(reports.is_empty());
 }

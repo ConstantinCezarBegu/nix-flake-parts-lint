@@ -1,7 +1,6 @@
 use std::path::Path;
 
 use nix_lint_core::{FileLevelReport, FileLevelRule, Severity};
-use regex::Regex;
 
 pub struct OptionNixRestrictedToHosts;
 
@@ -84,7 +83,10 @@ mod tests {
     fn test_option_nix_outside_hosts_report() {
         let rule = OptionNixRestrictedToHosts::new();
         let report = rule.validate_file(&make_path("services/myService-option.nix"), "");
-        assert!(report.is_some(), "services/myService-option.nix should be invalid");
+        assert!(
+            report.is_some(),
+            "services/myService-option.nix should be invalid"
+        );
         assert!(
             report.unwrap().message.contains("outside hosts/"),
             "Message should mention outside hosts/"
@@ -101,10 +103,7 @@ mod tests {
     #[test]
     fn test_deeply_nested_in_hosts_ok() {
         let rule = OptionNixRestrictedToHosts::new();
-        let report = rule.validate_file(
-            &make_path("hosts/wayland/sway/sway-option.nix"),
-            "",
-        );
+        let report = rule.validate_file(&make_path("hosts/wayland/sway/sway-option.nix"), "");
         assert!(
             report.is_none(),
             "deeply nested option file in hosts/ should be valid"

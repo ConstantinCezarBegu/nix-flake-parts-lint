@@ -114,13 +114,15 @@ fn main() {
 
     let registry = registry::build_registry();
 
-   let nix_files = collect_nix_files(&cli.path);
+    let nix_files = collect_nix_files(&cli.path);
     let found_issues = lint_files_parallel(&nix_files, &registry, config);
 
-    let project_reports = registry.validate_project(&nix_files
-        .iter()
-        .map(|f| (f.path.to_string_lossy().to_string(), f.content.clone()))
-        .collect::<Vec<_>>());
+    let project_reports = registry.validate_project(
+        &nix_files
+            .iter()
+            .map(|f| (f.path.to_string_lossy().to_string(), f.content.clone()))
+            .collect::<Vec<_>>(),
+    );
     let mut project_has_issues = false;
     for report in &project_reports {
         if config.disabled.contains(&report.code.to_string()) {
@@ -132,7 +134,10 @@ fn main() {
             nix_lint_core::Severity::Error => "ERROR",
             nix_lint_core::Severity::Hint => "HINT",
         };
-        eprintln!("{} [{}] {} (note: {})", report.file, severity, report.message, report.note);
+        eprintln!(
+            "{} [{}] {} (note: {})",
+            report.file, severity, report.message, report.note
+        );
     }
 
     if found_issues || project_has_issues {

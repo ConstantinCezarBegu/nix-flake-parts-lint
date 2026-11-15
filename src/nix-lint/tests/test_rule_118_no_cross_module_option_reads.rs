@@ -21,10 +21,7 @@ fn cross_module_read_triggers() {
   };
   config.myService.bar = config.otherService.baz;
 }"#;
-    let reports = registry.validate_file(
-        &std::path::PathBuf::from("flake/modules/test.nix"),
-        src,
-    );
+    let reports = registry.validate_file(&std::path::PathBuf::from("flake/modules/test.nix"), src);
     assert!(!reports.is_empty());
     assert!(reports.iter().any(|r| r.code == 118));
 }
@@ -39,10 +36,7 @@ fn cross_module_assert_triggers() {
     config.myService.bar = true;
   }
 }"#;
-    let reports = registry.validate_file(
-        &std::path::PathBuf::from("test.nix"),
-        src,
-    );
+    let reports = registry.validate_file(&std::path::PathBuf::from("test.nix"), src);
     assert!(!reports.is_empty());
     assert!(reports.iter().any(|r| r.code == 118));
 }
@@ -54,10 +48,7 @@ fn same_namespace_no_trigger() {
   options.myService.foo = lib.mkOption { type = lib.types.bool; };
   config.myService.bar = config.myService.foo;
 }"#;
-    let reports = registry.validate_file(
-        &std::path::PathBuf::from("test.nix"),
-        src,
-    );
+    let reports = registry.validate_file(&std::path::PathBuf::from("test.nix"), src);
     assert!(reports.is_empty());
 }
 
@@ -68,9 +59,6 @@ fn builtin_nix_read_no_trigger() {
   options.myService.foo = lib.mkOption { type = lib.types.bool; };
   config.myService.nixSetting = config.nix.settings.auto-optimise-store;
 }"#;
-    let reports = registry.validate_file(
-        &std::path::PathBuf::from("test.nix"),
-        src,
-    );
+    let reports = registry.validate_file(&std::path::PathBuf::from("test.nix"), src);
     assert!(reports.is_empty());
 }

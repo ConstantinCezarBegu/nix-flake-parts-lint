@@ -16,10 +16,13 @@ fn secretspec_outside_hosts_warning() {
         r#"{ pkgs, secretspec, secretspecToml }:
     secretspec
 "#
-            .to_string(),
+        .to_string(),
     )];
     let reports = registry.validate_project(&files);
-    assert!(!reports.is_empty(), "expected secretspec warning outside hosts/");
+    assert!(
+        !reports.is_empty(),
+        "expected secretspec warning outside hosts/"
+    );
     assert!(
         reports.iter().any(|r| r.code == 123),
         "expected rule 123 violation"
@@ -29,23 +32,28 @@ fn secretspec_outside_hosts_warning() {
         "expected 'secretspec' in message"
     );
     assert!(
-        reports.iter().all(|r| r.severity == nix_lint_core::Severity::Warn),
+        reports
+            .iter()
+            .all(|r| r.severity == nix_lint_core::Severity::Warn),
         "expected Warn severity"
     );
 }
 
 #[test]
-fn mkSecretCmd_outside_hosts_warning() {
+fn mk_secret_cmd_outside_hosts_warning() {
     let registry = make_registry();
     let files = vec![(
         "services/bw.nix".to_string(),
         r#"{ config, mkSecretCmd }:
     ${mkSecretCmd { key = "api-key"; }}
 "#
-            .to_string(),
+        .to_string(),
     )];
     let reports = registry.validate_project(&files);
-    assert!(!reports.is_empty(), "expected mkSecretCmd warning outside hosts/");
+    assert!(
+        !reports.is_empty(),
+        "expected mkSecretCmd warning outside hosts/"
+    );
     assert!(
         reports.iter().any(|r| r.code == 123),
         "expected rule 123 violation"
@@ -60,24 +68,30 @@ fn secretspec_in_hosts_no_warning() {
         r#"{ config, lib, mkSecretCmd, pkgs, secretspec, ... }:
     secrets = import ../secrets/mkSecret.nix { inherit pkgs secretspec; };
 "#
-            .to_string(),
+        .to_string(),
     )];
     let reports = registry.validate_project(&files);
-    assert!(reports.is_empty(), "expected no warning for secrets in hosts/");
+    assert!(
+        reports.is_empty(),
+        "expected no warning for secrets in hosts/"
+    );
 }
 
 #[test]
-fn secretspecToml_in_nixos_warning() {
+fn secretspec_toml_in_nixos_warning() {
     let registry = make_registry();
     let files = vec![(
         "nixos/default.nix".to_string(),
         r#"{ secretspecToml }:
     { config.secretspecToml = secretspecToml; }
 "#
-            .to_string(),
+        .to_string(),
     )];
     let reports = registry.validate_project(&files);
-    assert!(!reports.is_empty(), "expected secretspecToml warning outside hosts/");
+    assert!(
+        !reports.is_empty(),
+        "expected secretspecToml warning outside hosts/"
+    );
     assert!(
         reports.iter().any(|r| r.code == 123),
         "expected rule 123 violation"
@@ -85,17 +99,20 @@ fn secretspecToml_in_nixos_warning() {
 }
 
 #[test]
-fn bwSession_in_darwin_warning() {
+fn bw_session_in_darwin_warning() {
     let registry = make_registry();
     let files = vec![(
         "darwin/default.nix".to_string(),
         r#"{ bwSession }:
     { config = { }; }
 "#
-            .to_string(),
+        .to_string(),
     )];
     let reports = registry.validate_project(&files);
-    assert!(!reports.is_empty(), "expected bwSession warning outside hosts/");
+    assert!(
+        !reports.is_empty(),
+        "expected bwSession warning outside hosts/"
+    );
     assert!(
         reports.iter().any(|r| r.code == 123),
         "expected rule 123 violation"
@@ -112,10 +129,13 @@ fn options_secrets_outside_hosts_warning() {
         vpnHost = lib.mkOption { type = lib.types.str; };
     };
 "#
-            .to_string(),
+        .to_string(),
     )];
     let reports = registry.validate_project(&files);
-    assert!(!reports.is_empty(), "expected options.secrets warning outside hosts/");
+    assert!(
+        !reports.is_empty(),
+        "expected options.secrets warning outside hosts/"
+    );
     assert!(
         reports.iter().any(|r| r.code == 123),
         "expected rule 123 violation"
@@ -130,7 +150,7 @@ fn no_secrets_no_report() {
         r#"{ lib }:
     options.git = lib.mkOption { type = lib.types.bool; };
 "#
-            .to_string(),
+        .to_string(),
     )];
     let reports = registry.validate_project(&files);
     assert!(
@@ -147,7 +167,7 @@ fn secrets_in_hosts_secrets_dir_ok() {
         r#"{ secretspec, secretspecToml, bwSession, mkSecretCmd, pkgs, ... }:
     mkSecretCmd
 "#
-            .to_string(),
+        .to_string(),
     )];
     let reports = registry.validate_project(&files);
     assert!(

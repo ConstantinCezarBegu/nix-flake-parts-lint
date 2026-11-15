@@ -26,7 +26,12 @@ impl NoMkIfTrue {
         lambda_text == "lib.mkIf" || lambda_text == "mkIf"
     }
 
-    fn check(&self, node: &SyntaxElement, _file_path: &std::path::Path, _src: &str) -> Option<Report> {
+    fn check(
+        &self,
+        node: &SyntaxElement,
+        _file_path: &std::path::Path,
+        _src: &str,
+    ) -> Option<Report> {
         if let SyntaxElement::Node(node) = node
             && let Some(ident) = crate::rnix::ast::Ident::cast(node.clone())
             && ident.to_string() != "true"
@@ -79,7 +84,9 @@ mod tests {
     #[test]
     fn test_mkif_true_triggers() {
         let src = r#"mkIf true (throw "hi")"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
+        let reports =
+            nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src)
+                .unwrap();
         assert!(!reports.is_empty());
         assert_eq!(reports[0].code, 104);
     }
@@ -87,7 +94,9 @@ mod tests {
     #[test]
     fn test_lib_mkif_true_triggers() {
         let src = r#"lib.mkIf true (throw "hi")"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
+        let reports =
+            nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src)
+                .unwrap();
         assert!(!reports.is_empty());
         assert_eq!(reports[0].code, 104);
     }
@@ -95,7 +104,9 @@ mod tests {
     #[test]
     fn test_mkif_condition_true_triggers() {
         let src = r#"mkIf someCondition true"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
+        let reports =
+            nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src)
+                .unwrap();
         assert!(!reports.is_empty());
         assert_eq!(reports[0].code, 104);
     }
@@ -103,7 +114,9 @@ mod tests {
     #[test]
     fn test_mkif_paren_condition_true_triggers() {
         let src = r#"lib.mkIf (config.hardware.gpuType == "amd") true"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
+        let reports =
+            nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src)
+                .unwrap();
         assert!(!reports.is_empty());
         assert_eq!(reports[0].code, 104);
     }
@@ -111,21 +124,27 @@ mod tests {
     #[test]
     fn test_plain_true_no_trigger() {
         let src = r#"true"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
+        let reports =
+            nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src)
+                .unwrap();
         assert!(reports.is_empty());
     }
 
     #[test]
     fn test_mkif_false_no_trigger() {
         let src = r#"mkIf false (throw "hi")"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
+        let reports =
+            nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src)
+                .unwrap();
         assert!(reports.is_empty());
     }
 
     #[test]
     fn test_mkif_true_attrset_triggers() {
         let src = r#"mkIf true { enable = true; }"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
+        let reports =
+            nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src)
+                .unwrap();
         assert!(!reports.is_empty());
         assert_eq!(reports[0].code, 104);
     }
@@ -133,7 +152,9 @@ mod tests {
     #[test]
     fn test_true_inside_mkif_body_no_trigger() {
         let src = r#"lib.mkIf (x == 1) { enable = true; }"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
+        let reports =
+            nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src)
+                .unwrap();
         assert!(reports.is_empty());
     }
 
@@ -142,7 +163,9 @@ mod tests {
         let src = r#"lib.mkIf config.nixos.hasHibernate {
           assertions = [{ assertion = true; message = "ok"; }];
         }"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
+        let reports =
+            nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src)
+                .unwrap();
         assert!(reports.is_empty());
     }
 }

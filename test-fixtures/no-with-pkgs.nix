@@ -8,7 +8,7 @@ in
   options = {
     test = lib.mkOption { type = lib.types.bool; };
   };
-  
+
   config = {
     test = true;
   };

@@ -11,7 +11,7 @@ fn make_registry() -> LintRegistry {
 }
 
 #[test]
-fn builtins_readFile_triggers() {
+fn builtins_read_file_triggers() {
     let registry = make_registry();
     let src = r#"{ lib, ... }:
 {
@@ -20,19 +20,21 @@ fn builtins_readFile_triggers() {
     key = builtins.readFile ./secret.key;
   };
 }"#;
-    let reports = nix_lint_core::lint_file(&registry, src).unwrap();
+    let reports =
+        nix_lint_core::lint_file(&registry, std::path::Path::new("test.nix"), src).unwrap();
     assert!(!reports.is_empty());
     assert!(reports.iter().any(|r| r.code == 110));
 }
 
 #[test]
-fn no_builtins_readFile_no_trigger() {
+fn no_builtins_read_file_no_trigger() {
     let registry = make_registry();
     let src = r#"{ lib, ... }:
 {
   options.foo = lib.mkOption { type = lib.types.bool; };
   config.foo = "hello";
 }"#;
-    let reports = nix_lint_core::lint_file(&registry, src).unwrap();
+    let reports =
+        nix_lint_core::lint_file(&registry, std::path::Path::new("test.nix"), src).unwrap();
     assert!(reports.is_empty());
 }

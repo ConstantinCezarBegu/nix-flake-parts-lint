@@ -38,7 +38,12 @@ impl Default for NoSecrets {
 }
 
 impl NoSecrets {
-    fn check(&self, node: &SyntaxElement, _file_path: &std::path::Path, _src: &str) -> Option<Report> {
+    fn check(
+        &self,
+        node: &SyntaxElement,
+        _file_path: &std::path::Path,
+        _src: &str,
+    ) -> Option<Report> {
         if let SyntaxElement::Node(node) = node
             && let Some(_str) = Str::cast(node.clone())
         {
@@ -74,6 +79,17 @@ impl NoSecrets {
         // Skip placeholder patterns like @SEARX_SECRET_KEY@ (with or without quotes)
         let inner = text.trim_matches('"');
         if inner.starts_with('@') && inner.ends_with('@') {
+            return false;
+        }
+        // ...and an environment variable reference, $NAME, which modules run
+        // through envsubst (e.g. nixpkgs' searx) fill in at start.
+        if let Some(name) = inner.strip_prefix('$')
+            && !name.is_empty()
+            && name
+                .chars()
+                .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '_')
+            && !name.starts_with(|c: char| c.is_ascii_digit())
+        {
             return false;
         }
 
@@ -125,7 +141,9 @@ mod tests {
         let src = r#"{
           password = "supersecret123";
         }"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
+        let reports =
+            nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src)
+                .unwrap();
         assert!(!reports.is_empty());
         assert_eq!(reports[0].code, 112);
     }
@@ -135,7 +153,9 @@ mod tests {
         let src = r#"{
           api_key = "abc123";
         }"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
+        let reports =
+            nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src)
+                .unwrap();
         assert!(!reports.is_empty());
         assert_eq!(reports[0].code, 112);
     }
@@ -145,7 +165,9 @@ mod tests {
         let src = r#"{
           secret_key = "abc123";
         }"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
+        let reports =
+            nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src)
+                .unwrap();
         assert!(!reports.is_empty());
         assert_eq!(reports[0].code, 112);
     }
@@ -155,7 +177,9 @@ mod tests {
         let src = r#"{
           auth_token = "abc123";
         }"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
+        let reports =
+            nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src)
+                .unwrap();
         assert!(!reports.is_empty());
         assert_eq!(reports[0].code, 112);
     }
@@ -165,8 +189,35 @@ mod tests {
         let src = r#"{
           password = "@SEARX_SECRET_KEY@";
         }"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
+        let reports =
+            nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src)
+                .unwrap();
         assert!(reports.is_empty());
+    }
+
+    #[test]
+    fn test_env_placeholder_no_trigger() {
+        // envsubst-style placeholder (nixpkgs' searx module), filled in at
+        // start from an environment file.
+        let src = r#"{
+          secret_key = "$SEARX_SECRET_KEY";
+        }"#;
+        let reports =
+            nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src)
+                .unwrap();
+        assert!(reports.is_empty());
+    }
+
+    #[test]
+    fn test_dollar_prefixed_secret_triggers() {
+        let src = r#"{
+          password = "$ecret-Passw0rd";
+        }"#;
+        let reports =
+            nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src)
+                .unwrap();
+        assert!(!reports.is_empty());
+        assert_eq!(reports[0].code, 112);
     }
 
     #[test]
@@ -174,7 +225,9 @@ mod tests {
         let src = r#"{
           password = "This is a normal sentence with multiple words";
         }"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
+        let reports =
+            nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src)
+                .unwrap();
         assert!(reports.is_empty());
     }
 
@@ -183,7 +236,9 @@ mod tests {
         let src = r#"{
           api-key = "abc123";
         }"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
+        let reports =
+            nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src)
+                .unwrap();
         assert!(!reports.is_empty());
         assert_eq!(reports[0].code, 112);
     }
@@ -193,7 +248,9 @@ mod tests {
         let src = r#"{
           services.myApp.password = "hunter2";
         }"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
+        let reports =
+            nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src)
+                .unwrap();
         assert!(!reports.is_empty());
         assert_eq!(reports[0].code, 112);
     }
@@ -203,7 +260,9 @@ mod tests {
         let src = r#"{
           password = "";
         }"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
+        let reports =
+            nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src)
+                .unwrap();
         assert!(reports.is_empty());
     }
 
@@ -214,7 +273,9 @@ mod tests {
 MIIEvgIBADANBg...
 -----END PRIVATE KEY-----";
         }"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
+        let reports =
+            nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src)
+                .unwrap();
         assert!(!reports.is_empty());
         assert_eq!(reports[0].code, 112);
     }
@@ -224,7 +285,9 @@ MIIEvgIBADANBg...
         let src = r#"{
           password = config.age.secrets.pass.path;
         }"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
+        let reports =
+            nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src)
+                .unwrap();
         assert!(reports.is_empty());
     }
 }

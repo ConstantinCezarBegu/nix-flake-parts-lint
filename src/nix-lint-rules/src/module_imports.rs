@@ -36,7 +36,7 @@ impl FileLevelRule for ModuleImports {
         None
     }
 
- fn validate_project(&self, files: &[(String, String)]) -> Vec<FileLevelReport> {
+    fn validate_project(&self, files: &[(String, String)]) -> Vec<FileLevelReport> {
         let mut reports = Vec::new();
 
         // Collect all default.nix files (except flake.nix and hosts/default.nix)
@@ -83,11 +83,9 @@ impl FileLevelRule for ModuleImports {
             let leaf_files = collect_leaf_files(module_dir);
 
             for (rel_path, file_name) in &leaf_files {
-                let base_name = rel_path
-                    .trim_end_matches(".nix")
-                    .trim_start_matches("./");
+                let base_name = rel_path.trim_end_matches(".nix").trim_start_matches("./");
                 let is_locally_imported = imports_map.contains_key(base_name)
-                    || is_imported_in_content(&file_name, &module_default_content);
+                    || is_imported_in_content(file_name, &module_default_content);
                 let is_parent_imported = all_dirs.iter().any(|(parent_dir, parent_content)| {
                     if parent_dir == module_dir {
                         return false;
@@ -100,8 +98,7 @@ impl FileLevelRule for ModuleImports {
                                 || check_path.contains(import_key)
                         })
                 });
-                if !is_locally_imported && !is_parent_imported
-                {
+                if !is_locally_imported && !is_parent_imported {
                     let import_path = if file_name.ends_with(".nix") && file_name != "default.nix" {
                         format!("./{}", file_name)
                     } else {
@@ -174,16 +171,20 @@ fn is_imported_in_content(file_name: &str, content: &str) -> bool {
 }
 
 fn is_sibling_of_import(dir: &str, imports_map: &HashMap<String, String>) -> bool {
-    for (import_base, _) in imports_map {
+    for import_base in imports_map.keys() {
         // Check if the directory is directly the imported item
         if dir.ends_with(&format!("/{}", import_base)) || dir == import_base {
             return true;
         }
         // Check if the directory is the parent of an imported file (e.g., dir is parent of ./fish.nix)
         if import_base.ends_with(".nix") {
-            let import_dir = import_base.trim_end_matches(".nix").rsplit('/').next().unwrap_or("");
+            let import_dir = import_base
+                .trim_end_matches(".nix")
+                .rsplit('/')
+                .next()
+                .unwrap_or("");
             let dir_parent = dir.rsplit('/').next().unwrap_or("");
-            if import_dir == "" && dir_parent == dir {
+            if import_dir.is_empty() && dir_parent == dir {
                 return true;
             }
         }
@@ -203,9 +204,7 @@ fn extract_imports(content: &str) -> HashMap<String, String> {
                 continue;
             }
             if let Some(path) = trimmed.strip_prefix("./") {
-                let base_name = path
-                    .trim_end_matches(".nix")
-                    .trim_end_matches('/');
+                let base_name = path.trim_end_matches(".nix").trim_end_matches('/');
                 map.insert(base_name.to_string(), path.to_string());
             }
         }
@@ -255,18 +254,15 @@ fn collect_leaf_files(dir: &str) -> Vec<(String, String)> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::PathBuf;
-
-    fn make_path(name: &str) -> PathBuf {
-        PathBuf::from(format!("/tmp/test/{}", name))
-    }
 
     #[test]
     fn test_module_imports_all_files_imported_no_report() {
         let rule = ModuleImports::new();
         let dir = "/tmp/test_module_imports_0";
         let _ = std::fs::create_dir_all(dir);
-        std::fs::write(format!("{}/default.nix", dir), r#"{ self, ... }: {
+        std::fs::write(
+            format!("{}/default.nix", dir),
+            r#"{ self, ... }: {
   imports = [
     ./fish.nix
     ./ssh.nix
@@ -274,12 +270,16 @@ mod tests {
   flake.modules.darwin.base = { ... }: {
     imports = [ self.modules.darwin.fish self.modules.darwin.ssh ];
   };
-}"#).unwrap();
+}"#,
+        )
+        .unwrap();
         std::fs::write(format!("{}/fish.nix", dir), "{}").unwrap();
         std::fs::write(format!("{}/ssh.nix", dir), "{}").unwrap();
 
         let files: Vec<(String, String)> = vec![
-            (format!("{}/default.nix", dir), r#"{ self, ... }: {
+            (
+                format!("{}/default.nix", dir),
+                r#"{ self, ... }: {
   imports = [
     ./fish.nix
     ./ssh.nix
@@ -287,38 +287,52 @@ mod tests {
   flake.modules.darwin.base = { ... }: {
     imports = [ self.modules.darwin.fish self.modules.darwin.ssh ];
   };
-}"#.to_string()),
+}"#
+                .to_string(),
+            ),
             (format!("{}/fish.nix", dir), "{}".to_string()),
             (format!("{}/ssh.nix", dir), "{}".to_string()),
         ];
         let reports = rule.validate_project(&files);
-        assert!(reports.is_empty(), "Expected no reports, got: {:?}", reports);
+        assert!(
+            reports.is_empty(),
+            "Expected no reports, got: {:?}",
+            reports
+        );
     }
 
-   #[test]
+    #[test]
     fn test_module_imports_missing_leaf_file_report() {
         let rule = ModuleImports::new();
         let dir = "/tmp/test_module_imports_1";
         let _ = std::fs::create_dir_all(dir);
-        std::fs::write(format!("{}/default.nix", dir), r#"{ self, ... }: {
+        std::fs::write(
+            format!("{}/default.nix", dir),
+            r#"{ self, ... }: {
   imports = [
     ./fish.nix
     ./ssh.nix
   ];
   flake.modules.darwin.base = { ... }: {};
-}"#).unwrap();
+}"#,
+        )
+        .unwrap();
         std::fs::write(format!("{}/fish.nix", dir), "{}").unwrap();
         std::fs::write(format!("{}/ssh.nix", dir), "{}").unwrap();
         std::fs::write(format!("{}/stylix.nix", dir), "{}").unwrap();
 
         let files: Vec<(String, String)> = vec![
-            (format!("{}/default.nix", dir), r#"{ self, ... }: {
+            (
+                format!("{}/default.nix", dir),
+                r#"{ self, ... }: {
   imports = [
     ./fish.nix
     ./ssh.nix
   ];
   flake.modules.darwin.base = { ... }: {};
-}"#.to_string()),
+}"#
+                .to_string(),
+            ),
             (format!("{}/fish.nix", dir), "{}".to_string()),
             (format!("{}/ssh.nix", dir), "{}".to_string()),
             (format!("{}/stylix.nix", dir), "{}".to_string()),
@@ -336,56 +350,76 @@ mod tests {
         let dir = "/tmp/test_module_imports_4";
         let aero_dir = format!("{}/aerospace", dir);
         let _ = std::fs::create_dir_all(&aero_dir);
-        std::fs::write(format!("{}/default.nix", dir), r#"{ self, ... }: {
+        std::fs::write(
+            format!("{}/default.nix", dir),
+            r#"{ self, ... }: {
   imports = [
     ./aerospace
     ./fish.nix
   ];
   flake.modules.darwin.base = { ... }: {};
-}"#).unwrap();
+}"#,
+        )
+        .unwrap();
         std::fs::write(format!("{}/default.nix", aero_dir), "{}").unwrap();
         std::fs::write(format!("{}/fish.nix", dir), "{}").unwrap();
 
         let files: Vec<(String, String)> = vec![
-            (format!("{}/default.nix", dir), r#"{ self, ... }: {
+            (
+                format!("{}/default.nix", dir),
+                r#"{ self, ... }: {
   imports = [
     ./aerospace
     ./fish.nix
   ];
   flake.modules.darwin.base = { ... }: {};
-}"#.to_string()),
+}"#
+                .to_string(),
+            ),
             (format!("{}/default.nix", aero_dir), "{}".to_string()),
             (format!("{}/fish.nix", dir), "{}".to_string()),
         ];
         let reports = rule.validate_project(&files);
-        assert!(reports.is_empty(), "Expected no reports, got: {:?}", reports);
+        assert!(
+            reports.is_empty(),
+            "Expected no reports, got: {:?}",
+            reports
+        );
     }
 
-   #[test]
+    #[test]
     fn test_module_imports_nested_leaf_not_imported_report() {
         let rule = ModuleImports::new();
         let dir = "/tmp/test_module_imports_2";
         let aero_dir = format!("{}/aerospace", dir);
         let _ = std::fs::create_dir_all(&aero_dir);
-        std::fs::write(format!("{}/default.nix", dir), r#"{ self, ... }: {
+        std::fs::write(
+            format!("{}/default.nix", dir),
+            r#"{ self, ... }: {
   imports = [
     ./aerospace
     ./fish.nix
   ];
   flake.modules.darwin.base = { ... }: {};
-}"#).unwrap();
+}"#,
+        )
+        .unwrap();
         std::fs::write(format!("{}/default.nix", aero_dir), "{}").unwrap();
         std::fs::write(format!("{}/fish.nix", dir), "{}").unwrap();
         std::fs::write(format!("{}/config.nix", aero_dir), "{}").unwrap();
 
         let files: Vec<(String, String)> = vec![
-            (format!("{}/default.nix", dir), r#"{ self, ... }: {
+            (
+                format!("{}/default.nix", dir),
+                r#"{ self, ... }: {
   imports = [
     ./aerospace
     ./fish.nix
   ];
   flake.modules.darwin.base = { ... }: {};
-}"#.to_string()),
+}"#
+                .to_string(),
+            ),
             (format!("{}/default.nix", aero_dir), "{}".to_string()),
             (format!("{}/fish.nix", dir), "{}".to_string()),
             (format!("{}/config.nix", aero_dir), "{}".to_string()),
@@ -414,20 +448,28 @@ mod tests {
         assert_eq!(imports.len(), 4);
     }
 
-   #[test]
+    #[test]
     fn test_no_imports_block_no_report() {
         let rule = ModuleImports::new();
         let dir = "/tmp/test_module_imports_3";
         let _ = std::fs::create_dir_all(dir);
-        std::fs::write(format!("{}/default.nix", dir), r#"{ self, ... }: {
+        std::fs::write(
+            format!("{}/default.nix", dir),
+            r#"{ self, ... }: {
   flake.modules.darwin.base = { ... }: {};
-}"#).unwrap();
+}"#,
+        )
+        .unwrap();
         std::fs::write(format!("{}/fish.nix", dir), "{}").unwrap();
 
         let files: Vec<(String, String)> = vec![
-            (format!("{}/default.nix", dir), r#"{ self, ... }: {
+            (
+                format!("{}/default.nix", dir),
+                r#"{ self, ... }: {
   flake.modules.darwin.base = { ... }: {};
-}"#.to_string()),
+}"#
+                .to_string(),
+            ),
             (format!("{}/fish.nix", dir), "{}".to_string()),
         ];
         let reports = rule.validate_project(&files);
@@ -444,11 +486,17 @@ mod tests {
                 r#"{ lib, pkgs, ... }: {
   packages.mytool = pkgs.writeShellScriptBin "mytool" "echo hello";
 }"#
-                    .to_string(),
+                .to_string(),
             ),
-            ("/tmp/test/packages/helper.nix".to_string(), "{}".to_string()),
+            (
+                "/tmp/test/packages/helper.nix".to_string(),
+                "{}".to_string(),
+            ),
         ];
         let reports = rule.validate_project(&files);
-        assert!(reports.is_empty(), "Expected no reports for non-module dirs");
+        assert!(
+            reports.is_empty(),
+            "Expected no reports for non-module dirs"
+        );
     }
 }

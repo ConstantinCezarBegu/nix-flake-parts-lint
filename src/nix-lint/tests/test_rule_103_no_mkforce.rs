@@ -11,14 +11,15 @@ fn make_registry() -> LintRegistry {
 }
 
 #[test]
-fn mkForce_triggers() {
+fn mk_force_triggers() {
     let registry = make_registry();
     let src = r#"{ lib, config, ... }:
 {
   options.foo = lib.mkOption { type = lib.types.bool; };
   config.foo = lib.mkForce true;
 }"#;
-    let reports = nix_lint_core::lint_file(&registry, src).unwrap();
+    let reports =
+        nix_lint_core::lint_file(&registry, std::path::Path::new("test.nix"), src).unwrap();
     assert!(!reports.is_empty());
     assert!(reports.iter().any(|r| r.code == 103));
 }
@@ -31,6 +32,7 @@ fn normal_assignment_no_trigger() {
   options.foo = lib.mkOption { type = lib.types.bool; };
   config.foo = true;
 }"#;
-    let reports = nix_lint_core::lint_file(&registry, src).unwrap();
+    let reports =
+        nix_lint_core::lint_file(&registry, std::path::Path::new("test.nix"), src).unwrap();
     assert!(reports.is_empty());
 }

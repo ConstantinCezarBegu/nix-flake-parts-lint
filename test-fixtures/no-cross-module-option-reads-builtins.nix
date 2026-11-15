@@ -16,6 +16,8 @@
 
   config.myService.bar = if config.nix.settings.auto-optimise-store then "optimised" else "not";
   config.myService.foo = config.services.nginx.enable;
-  assert config.flake.description != "";
+  config.myService.baz =
+    assert config.flake.description != "";
+    "ok";
   config.myService.bar = "ok";
 }

@@ -44,7 +44,7 @@ impl FileLevelRule for SecretsInHostsOnly {
         for (path_str, content) in files {
             let path = Path::new(path_str);
             let in_hosts = path_str.starts_with("hosts/") || path_str.contains("/hosts/");
-            let is_flake = path.file_name().map_or(false, |n| n == "flake.nix");
+            let is_flake = path.file_name().is_some_and(|n| n == "flake.nix");
             if !in_hosts && !is_flake {
                 // Check for secrets-related identifiers
                 let secrets_patterns = [
@@ -114,7 +114,7 @@ mod tests {
     }
 
     #[test]
-    fn test_mkSecretCmd_outside_hosts_report() {
+    fn test_mk_secret_cmd_outside_hosts_report() {
         let rule = SecretsInHostsOnly::new();
         let files = make_file(
             "services/bw.nix",
@@ -128,7 +128,7 @@ mod tests {
     }
 
     #[test]
-    fn test_secretspecToml_outside_hosts_report() {
+    fn test_secretspec_toml_outside_hosts_report() {
         let rule = SecretsInHostsOnly::new();
         let files = make_file(
             "nixos/default.nix",
@@ -142,7 +142,7 @@ mod tests {
     }
 
     #[test]
-    fn test_bwSession_outside_hosts_report() {
+    fn test_bw_session_outside_hosts_report() {
         let rule = SecretsInHostsOnly::new();
         let files = make_file(
             "darwin/default.nix",

@@ -20,7 +20,8 @@ fn lib_optional_triggers() {
     bar = lib.optional true "hello";
   };
 }"#;
-    let reports = nix_lint_core::lint_file(&registry, src).unwrap();
+    let reports =
+        nix_lint_core::lint_file(&registry, std::path::Path::new("test.nix"), src).unwrap();
     assert!(!reports.is_empty());
     assert!(reports.iter().any(|r| r.code == 108));
 }
@@ -33,6 +34,7 @@ fn no_optional_no_trigger() {
   options.foo = lib.mkOption { type = lib.types.bool; };
   config.foo = "hello";
 }"#;
-    let reports = nix_lint_core::lint_file(&registry, src).unwrap();
+    let reports =
+        nix_lint_core::lint_file(&registry, std::path::Path::new("test.nix"), src).unwrap();
     assert!(reports.is_empty());
 }

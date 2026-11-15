@@ -21,7 +21,8 @@ fn secrets_in_config_triggers() {
     privateKey = "-----BEGIN RSA PRIVATE KEY-----";
   };
 }"#;
-    let reports = nix_lint_core::lint_file(&registry, src).unwrap();
+    let reports =
+        nix_lint_core::lint_file(&registry, std::path::Path::new("test.nix"), src).unwrap();
     assert!(!reports.is_empty());
     assert!(reports.iter().any(|r| r.code == 112));
 }
@@ -34,6 +35,7 @@ fn no_secrets_no_trigger() {
   options.foo = lib.mkOption { type = lib.types.bool; };
   config.foo = "normal-value";
 }"#;
-    let reports = nix_lint_core::lint_file(&registry, src).unwrap();
+    let reports =
+        nix_lint_core::lint_file(&registry, std::path::Path::new("test.nix"), src).unwrap();
     assert!(reports.is_empty());
 }

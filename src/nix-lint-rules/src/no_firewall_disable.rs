@@ -22,7 +22,12 @@ impl Default for NoFirewallDisable {
 }
 
 impl NoFirewallDisable {
-    fn check(&self, node: &SyntaxElement, _file_path: &std::path::Path, _src: &str) -> Option<Report> {
+    fn check(
+        &self,
+        node: &SyntaxElement,
+        _file_path: &std::path::Path,
+        _src: &str,
+    ) -> Option<Report> {
         if let SyntaxElement::Node(node) = node
             && let Some(_attrpath) = Attrpath::cast(node.clone())
         {
@@ -60,7 +65,9 @@ mod tests {
         let src = r#"{
           networking.firewall.enable = false;
         }"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
+        let reports =
+            nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src)
+                .unwrap();
         assert!(!reports.is_empty());
         assert_eq!(reports[0].code, 109);
     }
@@ -70,7 +77,9 @@ mod tests {
         let src = r#"{
           networking.firewall.enable = true;
         }"#;
-        let reports = nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src).unwrap();
+        let reports =
+            nix_lint_core::lint_file(&make_registry(), std::path::Path::new("dummy.nix"), src)
+                .unwrap();
         assert!(reports.is_empty());
     }
 }

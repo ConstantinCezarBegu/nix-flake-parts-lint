@@ -232,7 +232,11 @@ pub trait Lint: Metadata + Rule + Explain {
 ///
 /// Returns a vector of reports, one per violated rule.
 /// Returns an error if the source contains parse errors.
-pub fn lint_file(registry: &LintRegistry, file_path: &Path, src: &str) -> Result<Vec<Report>, ParseError> {
+pub fn lint_file(
+    registry: &LintRegistry,
+    file_path: &Path,
+    src: &str,
+) -> Result<Vec<Report>, ParseError> {
     let parsed = rnix::Root::parse(src);
     let errors = parsed.errors();
     if let Some(first_error) = errors.first() {
