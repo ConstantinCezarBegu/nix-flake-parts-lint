@@ -26,7 +26,9 @@ jobs:
           skipPush: true
 
       - name: Nix fmt check
-        run: nix fmt --check
+        # `nix fmt --check` is not a flag Nix knows; treefmt's own flag fails
+        # the run when anything would be reformatted.
+        run: nix fmt -- --fail-on-change
 
       - name: Cargo check
         run: nix develop --command cargo check --all
